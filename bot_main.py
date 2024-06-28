@@ -9,6 +9,7 @@ import requests
 import subprocess
 import time
 
+from cytoolz import sliding_window
 from cytoolz import partition_all
 from cytoolz import valmap
 from cytoolz import get_in
@@ -300,10 +301,41 @@ def pretty_print_entity(entity):
         )
         for track in entity.get("stress", {})
     }
+
     sections = [f"**{name.upper()}**"]
     sections += [f"**{track[0].upper()})** {boxes}" for (track, boxes) in stresses.items()]
     sections += [f"**FP)** {fp}/{refresh}"]
-    return "  ".join(sections)
+    first_line = "  ".join(sections)
+
+    aspects = entity.get("aspects", [])
+    translate = {
+        "sticky": "s",
+        "fragile": "f",
+        "mild": "mild",
+        "moderate": "mod",
+        "severe": "sev",
+        "extreme": "extreme",
+    }
+    aspects_f = []
+    for aspect in aspects:
+        if "tags" in aspects:
+            tags_f = " ".join(["(#)"]*aspects["tags"]) + " "
+        else:
+            tags_f = ""
+
+        if "kind" in aspect:
+            kind_f = "**(" + translate.get(aspect["kind"], aspect["kind"]) + ")** "
+        else:
+            kind_f = ""
+
+        name = aspect["name"]
+        aspect_f = f"<{tags_f}{kind_f}{name}>"
+
+        aspects_f.append(aspect_f)
+
+    aspect_line = "  ".join(aspects_f)
+
+    return f"{first_line}\n{aspect_line}"
 
 
 def targeted(func):
@@ -352,7 +384,7 @@ async def _commands(message):
     await message.channel.send("```\n" + "\n".join(listing) + "\n```")
 
 
-@cmds.register(r"[.]claim\s+(?P<entity>\w+)")
+@cmds.register(r"[.](claim|c)\s+(?P<entity>\w+)")
 async def _claim(message, entity):
     author = message.author.display_name
     player_mapping[author] = entity
@@ -405,6 +437,69 @@ async def _increment_fp(message, entity):
 @targeted
 async def _decrement_fp(message, entity):
     result = _issue_command({"command": "decrement_fp", "entity": entity})
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(ent))
+
+
+def _omit_match_spans(matches, string):
+    last_idx = len(string)
+    spans = [
+        (e1, s2)
+        for ((s1, e1), (s2, e2))
+        in sliding_window(2, [(0, 0)] + [m.span() for m in matches] + [(last_idx, None)])
+    ]
+    return "".join(string[a:b] for (a, b) in spans)
+
+
+@cmds.register(r"[.](add_aspect|aspect[+]|a[+])(?P<maybe_aspect>.+)")
+@targeted
+async def _add_aspect(message, maybe_aspect, entity):
+    aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
+    entity_id_matches = list(re.finditer(r'@\s+(\S+)', maybe_aspect))
+    aspect_text = _omit_match_spans(
+        aspect_kinds_matches + entity_id_matches,
+        maybe_aspect,
+    )
+    if aspect_kinds_matches:
+        for kind_match in aspect_kinds_matches:
+            result = _issue_command({
+                "command": "add_aspect",
+                "name": aspect_text.strip(),
+                "entity": entity,
+                "kind": kind_match.group(1),
+            })
+            if await standard_abort(message, result):
+                return
+    else:
+        result = _issue_command({
+            "command": "add_aspect",
+            "name": aspect_text.strip(),
+            "entity": entity,
+        })
+        if await standard_abort(message, result):
+            return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(ent))
+
+
+@cmds.register(r"[.](remove_aspect|aspect[-]|a[-])(?P<maybe_aspect>.+)")
+@targeted
+async def _remove_aspect(message, maybe_aspect, entity):
+    aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
+    entity_id_matches = list(re.finditer(r'@\s+(\S+)', maybe_aspect))
+    aspect_text = _omit_match_spans(
+        aspect_kinds_matches + entity_id_matches,
+        maybe_aspect,
+    )
+    result = _issue_command({
+        "command": "remove_aspect",
+        "name": aspect_text.strip(),
+        "entity": entity,
+    })
     if await standard_abort(message, result):
         return
 
