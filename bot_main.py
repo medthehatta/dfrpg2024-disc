@@ -527,14 +527,13 @@ async def _roll(message, maybe_bonuses):
     bonus_value = sum(bonus_values)
     display = " ".join([
         message.author.mention,
-        "rolled: `",
-        roll_format,
-        f"{{{roll_value}}}",
-        f"({' '.join(bonuses)})" if bonuses else "",
-        "=",
-        f"{{{roll_value + bonus_value}}}",
-        "`",
-    ])
+        "rolled: ",
+        "**`" + roll_format + "`**",
+        f"`{roll_value}`",
+        f"`{' '.join(bonuses)}" if bonuses else "",
+        "=`",
+        f"**`{roll_value + bonus_value}`**",
+    ]).replace("``", "")
     await message.channel.send(display)
 
 
