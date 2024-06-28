@@ -412,6 +412,38 @@ async def _decrement_fp(message, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
+@cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?")
+async def _roll(message, maybe_bonuses):
+    maybe_bonuses = maybe_bonuses or ""
+    rolled = random.choices([-1, 0, 1], k=4)
+    rolls_formatted = [
+        "+" if r == 1 else
+        "0" if r == 0 else
+        "-" if r == -1 else
+        "?"
+        for r in rolled
+    ]
+    roll_format = "[" + " ".join(rolls_formatted) + "]"
+    roll_value = sum(rolled)
+    bonuses = [b.group(0) for b in re.finditer(r'[+-]\d+', maybe_bonuses)]
+    bonus_values = [
+        -int(b[1:]) if b.startswith("-") else int(b[1:])
+        for b in bonuses
+    ]
+    bonus_value = sum(bonus_values)
+    display = " ".join([
+        message.author.mention,
+        "rolled: `",
+        roll_format,
+        f"{{{roll_value}}}",
+        f"({' '.join(bonuses)})" if bonuses else "",
+        "=",
+        f"{{{roll_value + bonus_value}}}",
+        "`",
+    ])
+    await message.channel.send(display)
+
+
 #
 # Entry point
 #
