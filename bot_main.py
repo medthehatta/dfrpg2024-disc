@@ -418,9 +418,8 @@ async def _roll(message, maybe_bonuses):
     rolled = random.choices([-1, 0, 1], k=4)
     rolls_formatted = [
         "+" if r == 1 else
-        "0" if r == 0 else
         "-" if r == -1 else
-        "?"
+        "0"
         for r in rolled
     ]
     roll_format = "[" + " ".join(rolls_formatted) + "]"
