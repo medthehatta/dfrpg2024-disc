@@ -449,10 +449,13 @@ async def _info(message, entity=None):
     else:
         entities = [entity]
 
+    # Case-insensitive
+    game = _get_game()
+    entities = [_insensitive_entity(game, e) for e in entities]
+
     if not entities:
         await message.channel.send(f"Could not find applicable entity.")
 
-    game = _get_game()
     for entity in entities:
         ent = get_in(["result", "entities", entity], game)
         await message.channel.send(pretty_print_entity(ent))
