@@ -694,7 +694,7 @@ async def _roll(message, maybe_bonuses):
         "rolled: ",
         "**`" + roll_format + "`**",
         f"`{roll_value}`",
-        f"`{' '.join(bonuses)}" if bonuses else "",
+        f"`{' '.join(bonuses)}" if bonuses else "`",
         "=`",
         f"**`{roll_value + bonus_value}`**",
     ]).replace("``", "")
@@ -734,7 +734,7 @@ async def _amend(message, maybe_bonuses):
         "rolled: ",
         "**`" + roll_format + "`**",
         f"`{roll_value}`",
-        f"`{' '.join(bonuses)}" if bonuses else "",
+        f"`{' '.join(bonuses)}" if bonuses else "`",
         "=`",
         f"**`{roll_value + bonus_value}`**",
     ]).replace("``", "")
