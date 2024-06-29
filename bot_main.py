@@ -386,9 +386,16 @@ async def _commands(message):
 
 @cmds.register(r"[.](claim|c)\s+(?P<entity>\w+)")
 async def _claim(message, entity):
-    author = message.author.display_name
-    player_mapping[author] = entity
-    await message.channel.send(f"{author} is now playing {entity}")
+    game = _get_game()
+    entities = get_in(["result", "entities"], game)
+    lower_map = {e.lower(): e for e in entities}
+    if entity.lower() not in lower_map:
+        await message.channel.send(f"{message.author.mention}: No such entity: {entity}")
+    else:
+        author = message.author.display_name
+        entity_name = lower_map[entity.lower()]
+        player_mapping[author] = entity_name
+        await message.channel.send(f"{author} is now playing {entity_name}")
 
 
 @cmds.register(r"[.]unclaim")
