@@ -50,6 +50,7 @@ bot_command_dispatch = {}
 
 player_mapping = {}
 
+player_last_rolls = {}
 
 #
 # Helpers
@@ -682,6 +683,46 @@ async def _roll(message, maybe_bonuses):
         for b in bonuses
     ]
     bonus_value = sum(bonus_values)
+    display = " ".join([
+        message.author.mention,
+        "rolled: ",
+        "**`" + roll_format + "`**",
+        f"`{roll_value}`",
+        f"`{' '.join(bonuses)}" if bonuses else "",
+        "=`",
+        f"**`{roll_value + bonus_value}`**",
+    ]).replace("``", "")
+    player_last_rolls[message.author.display_name] = {
+        "rolls_f": roll_format,
+        "roll_v": roll_value,
+        "bonuses": bonuses,
+        "bonus_v": bonus_value,
+        "total": roll_value + bonus_value,
+    }
+    await message.channel.send(display)
+
+
+@cmds.register(r"[.]amend(\s+(?P<maybe_bonuses>.*))?")
+async def _amend(message, maybe_bonuses):
+    author = message.author.display_name
+    if author not in player_last_rolls:
+        await message.channel.send(f"Could not find previous roll for {author} :sad:")
+        return
+
+    maybe_bonuses = maybe_bonuses or ""
+    bonuses = [b.group(0) for b in re.finditer(r'[+-]\d+', maybe_bonuses)]
+    bonus_values = [
+        -int(b[1:]) if b.startswith("-") else int(b[1:])
+        for b in bonuses
+    ]
+    bonus_value = sum(bonus_values)
+
+    last_roll = player_last_rolls[author]
+    roll_format = last_roll["rolls_f"]
+    roll_value = last_roll["roll_v"]
+    bonuses = last_roll["bonuses"] + bonuses
+    bonus_value = last_roll["bonus_v"] + bonus_value
+
     display = " ".join([
         message.author.mention,
         "rolled: ",
