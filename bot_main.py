@@ -375,7 +375,10 @@ def targeted(func):
             entities = entities_from_message(message)
 
         if not entities:
-            await message.channel.send("Could not find applicable entity.")
+            await message.channel.send(
+                "Could not find applicable entity in command.  "
+                "Retry, or designate a target entity with `.target`"
+            )
             author = message.author.display_name
             player_last_missing_target_cmd[author] = (func, message, args, kwargs)
 
