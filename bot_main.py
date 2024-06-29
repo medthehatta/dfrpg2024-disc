@@ -493,6 +493,13 @@ def _omit_match_spans(matches, string):
 @cmds.register(r"[.](add_aspect|aspect[+]|a[+])(?P<maybe_aspect>.+)")
 @targeted
 async def _add_aspect(message, maybe_aspect, entity):
+    kind_translator = {
+        "f": "fragile",
+        "s": "sticky",
+        "mod": "moderate",
+        "sev": "severe",
+        "x": "extreme",
+    }
     aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
     entity_id_matches = list(re.finditer(r'@\s+(\S+)', maybe_aspect))
     aspect_text = _omit_match_spans(
@@ -501,11 +508,12 @@ async def _add_aspect(message, maybe_aspect, entity):
     )
     if aspect_kinds_matches:
         for kind_match in aspect_kinds_matches:
+            k = kind_translator.get(kind_match.group(1), kind_match.group(1))
             result = _issue_command({
                 "command": "add_aspect",
                 "name": aspect_text.strip(),
                 "entity": entity,
-                "kind": kind_match.group(1),
+                "kind": k,
             })
             if await standard_abort(message, result):
                 return
