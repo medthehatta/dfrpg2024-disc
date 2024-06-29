@@ -8,6 +8,7 @@ import re
 import requests
 import subprocess
 import time
+import tempfile
 
 from cytoolz import sliding_window
 from cytoolz import partition_all
@@ -111,6 +112,15 @@ def _deep_printable(obj):
         return {k: _deep_printable(v) for (k, v) in obj.__dict__.items()}
     else:
         return obj
+
+
+async def _as_json_file(ctx, data, summary="", filename="output.txt"):
+    fh = tempfile.NamedTemporaryFile("w")
+    json.dump(data, fh, indent=4)
+    fh.flush()
+    error_file = discord.File(fh.name, filename=filename)
+    await ctx.send(summary, file=error_file)
+    fh.close()
 
 
 #
@@ -244,7 +254,7 @@ async def raw(ctx: commands.Context, *, content: str):
         (path, payload) = splitted
         payload = "".join(payload)
         res = requests.post(base_url + "/" + path.lstrip("/").rstrip("/"), json=json.loads(payload))
-    await ctx.send(_json_pretty(res.json()))
+    await _as_json_file(ctx, res.json(), filename="raw.txt")
 
 
 @bot.event
@@ -273,20 +283,30 @@ async def _dispatch_bot_command(message):
         await message.channel.send(f"Could not interpret command: {message.content}")
 
 
+def _insensitive_entity(game, name):
+    entities = get_in(["result", "entities"], game)
+    lower_map = {e.lower(): e for e in entities}
+    return lower_map.get(name.lower(), name)
+
+
 def entities_from_message(message):
     explicit_matches = [
         m.group(1) for m in re.finditer(r'@\s*(\S+)', message.content)
     ]
     match_for_author_claim = player_mapping.get(message.author.display_name)
     match_for_author_name = re.search(r'[(](\S+)[)]', message.author.display_name)
+
     if explicit_matches:
-        return explicit_matches
+        found = explicit_matches
     elif match_for_author_claim:
-        return [match_for_author_claim]
+        found = [match_for_author_claim]
     elif match_for_author_name:
-        return [match_for_author_name]
+        found = [match_for_author_name]
     else:
-        return []
+        found = []
+
+    game = _get_game()
+    return [_insensitive_entity(game, n) for n in found]
 
 
 def pretty_print_entity(entity):
@@ -343,7 +363,7 @@ def targeted(func):
     @wraps(func)
     async def _targeted(message, *args, **kwargs):
         if "entity" in kwargs and kwargs["entity"]:
-            entities = [kwargs["entity"]]
+            entities = [_insensitive_entity(_get_game(), kwargs["entity"])]
         else:
             entities = entities_from_message(message)
 
@@ -360,7 +380,16 @@ def targeted(func):
 async def standard_abort(message, response):
     inner_ok = get_in(["result", "ok"], response)
     if not inner_ok:
-        await message.channel.send(_json_pretty(response["result"]))
+        desc = (
+            get_in(["result", "description"], response) or
+            get_in(["description"], response)
+        )
+        await _as_json_file(
+            message.channel,
+            response,
+            summary=f"{message.author.mention}: Error: {desc}",
+            filename="error.txt",
+        )
         return True
     else:
         return False
