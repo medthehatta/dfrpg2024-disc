@@ -52,6 +52,9 @@ player_mapping = {}
 
 player_last_rolls = {}
 
+player_last_missing_target_cmd = {}
+
+
 #
 # Helpers
 #
@@ -373,6 +376,8 @@ def targeted(func):
 
         if not entities:
             await message.channel.send("Could not find applicable entity.")
+            author = message.author.display_name
+            player_last_missing_target_cmd[author] = (func, message, args, kwargs)
 
         for entity in entities:
             all_kwargs = {**kwargs, "entity": entity}
@@ -662,6 +667,16 @@ async def _clear_all_stress(message):
         return
 
     await message.channel.send(f"Cleared all stress")
+
+
+@cmds.register(r"[.](target|t)(\s+(?P<entity>\w+))?")
+@targeted
+async def _target(message, entity):
+    author = message.author.display_name
+    if author in player_last_missing_target_cmd:
+        (func, message, args, kwargs) = player_last_missing_target_cmd[author]
+        kwargs["entity"] = entity
+        await func(message, *args, **kwargs)
 
 
 @cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?")
