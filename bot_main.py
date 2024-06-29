@@ -317,7 +317,10 @@ def pretty_print_entity(entity):
         track: " ".join(
             "x" if i in get_in(["stress", track, "checked"], entity, default=[]) else
             "o"
-            for i in range(get_in(["stress", track, "max"], entity, default=2))
+            for i in range(
+                1,
+                get_in(["stress", track, "max"], entity, default=2) + 1,
+            )
         )
         for track in entity.get("stress", {})
     }
@@ -589,6 +592,76 @@ async def _clear_consequences(message, max_cons):
         return
 
     await message.channel.send(f"All consequences up to {max_cons} cleared")
+
+
+@cmds.register(
+    r"[.](inflict_stress|stress[+]|s[+])\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
+    r"[.](inflict_stress|stress[+]|s[+])\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+)
+@targeted
+async def _inflict_stress(message, track, box, entity=None):
+    tracks = [
+        "physical",
+        "mental",
+        "hunger",
+        "social",
+    ]
+    stress = next(
+        (t for t in tracks if t.startswith(track.lower())),
+        None,
+    )
+    result = _issue_command({
+        "command": "add_stress",
+        "stress": stress,
+        "box": box,
+        "entity": entity,
+    })
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(ent))
+
+
+@cmds.register(
+    r"[.](clear_stress|stress[-]|s[-])\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
+    r"[.](clear_stress|stress[-]|s[-])\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+)
+@targeted
+async def _remove_stress(message, track, box, entity=None):
+    tracks = [
+        "physical",
+        "mental",
+        "hunger",
+        "social",
+    ]
+    stress = next(
+        (t for t in tracks if t.startswith(track.lower())),
+        None,
+    )
+    result = _issue_command({
+        "command": "clear_stress_box",
+        "stress": stress,
+        "box": box,
+        "entity": entity,
+    })
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(ent))
+
+
+@cmds.register(r"[.](clear_all_stress|stress[#]|s[#])")
+async def _clear_all_stress(message):
+    result = _issue_command({
+        "command": "clear_all_stress",
+    })
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(f"Cleared all stress")
 
 
 @cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?")
