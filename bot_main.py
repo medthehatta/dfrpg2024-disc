@@ -511,7 +511,10 @@ async def _add_aspect(message, maybe_aspect, entity):
     )
     if aspect_kinds_matches:
         for kind_match in aspect_kinds_matches:
-            k = kind_translator.get(kind_match.group(1), kind_match.group(1))
+            k = kind_translator.get(
+                kind_match.group(1).lower(),
+                kind_match.group(1),
+            )
             result = _issue_command({
                 "command": "add_aspect",
                 "name": aspect_text.strip(),
@@ -567,9 +570,20 @@ async def _clear_all_temporary_aspects(message):
 
 @cmds.register(r"[.](clear_consequences|cons#)\s+(?P<max_cons>.+)")
 async def _clear_consequences(message, max_cons):
+    kind_translator = {
+        "f": "fragile",
+        "s": "sticky",
+        "mod": "moderate",
+        "sev": "severe",
+        "x": "extreme",
+    }
+    k = kind_translator.get(
+        max_cons.strip().lower(),
+        max_cons.strip(),
+    )
     result = _issue_command({
         "command": "clear_consequences",
-        "max_severity": max_cons.strip().lower(),
+        "max_severity": k,
     })
     if await standard_abort(message, result):
         return
