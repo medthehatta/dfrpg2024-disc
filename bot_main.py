@@ -661,7 +661,6 @@ async def _clear_all_stress(message):
     if await standard_abort(message, result):
         return
 
-    ent = get_in(["result", "result"], result)
     await message.channel.send(f"Cleared all stress")
 
 
