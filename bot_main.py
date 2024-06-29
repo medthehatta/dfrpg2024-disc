@@ -455,22 +455,11 @@ async def _claimed(message):
 
 
 @cmds.register(r"[.](info)(\s+(?P<entity>\w+))?")
+@targeted
 async def _info(message, entity=None):
-    if entity is None:
-        entities = entities_from_message(message)
-    else:
-        entities = [entity]
-
-    # Case-insensitive
     game = _get_game()
-    entities = [_insensitive_entity(game, e) for e in entities]
-
-    if not entities:
-        await message.channel.send(f"Could not find applicable entity.")
-
-    for entity in entities:
-        ent = get_in(["result", "entities", entity], game)
-        await message.channel.send(pretty_print_entity(ent))
+    ent = get_in(["result", "entities", entity], game)
+    await message.channel.send(pretty_print_entity(ent))
 
 
 @cmds.register(r"[.](increment_fp|fp[+])(\s+(?P<entity>\w+))?")
