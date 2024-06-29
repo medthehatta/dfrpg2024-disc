@@ -514,6 +514,29 @@ async def _remove_aspect(message, maybe_aspect, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
+@cmds.register(r"[.](remove_all_temporary_aspects|clear_temporary_aspects|aspect[#]|a[#])")
+async def _clear_all_temporary_aspects(message):
+    result = _issue_command({
+        "command": "remove_all_temporary_aspects",
+    })
+    if await standard_abort(message, result):
+        return
+
+    await message.channel.send(f"All temporary aspects cleared")
+
+
+@cmds.register(r"[.](clear_consequences|cons#)\s+(?P<max_cons>.+)")
+async def _clear_consequences(message, max_cons):
+    result = _issue_command({
+        "command": "clear_consequences",
+        "max_severity": max_cons.strip().lower(),
+    })
+    if await standard_abort(message, result):
+        return
+
+    await message.channel.send(f"All consequences up to {max_cons} cleared")
+
+
 @cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?")
 async def _roll(message, maybe_bonuses):
     maybe_bonuses = maybe_bonuses or ""
