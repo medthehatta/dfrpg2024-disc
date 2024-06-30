@@ -374,12 +374,18 @@ def pretty_print_order(order_):
     order = order_.get("order", [])
     current = order_.get("current")
     entities = order_.get("entities")
+    deferred = order_.get("deferred", [])
 
     if order and entities:
         wrapped = [
             f"[{i}.{entity}]" if i == (current + 1) else f"{i}.{entity}"
             for (i, entity) in enumerate(order, start=1)
         ]
+
+        if deferred:
+            defer_msg = f"\ndeferred: {' '.join(deferred)}"
+        else:
+            defer_msg = ""
 
         if current is not None:
             active = order[current]
@@ -396,9 +402,9 @@ def pretty_print_order(order_):
                 active_mention = None
 
         if active_mention:
-            return f"{active_mention}: {' '.join(wrapped)}"
+            return f"{active_mention}: {' '.join(wrapped)}{defer_msg}"
         else:
-            return f"{' '.join(wrapped)}"
+            return f"{' '.join(wrapped)}{defer_msg}"
 
     if (not order) and entities:
         return f"Ready: {' '.join(entities)}"
@@ -860,6 +866,32 @@ async def _order_clear(message):
 async def _order_drop(message, entity=None):
     result = _issue_command({
         "command": "drop_from_order",
+        "entity": entity,
+    })
+    if await standard_abort(message, result):
+        return
+
+    order = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_order(order))
+
+
+@cmds.register(r"[.](order_defer|defer)")
+async def _order_defer(message):
+    result = _issue_command({
+        "command": "defer",
+    })
+    if await standard_abort(message, result):
+        return
+
+    order = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_order(order))
+
+
+@cmds.register(r"[.](order_undefer|undefer|act)")
+@targeted
+async def _order_undefer(message, entity):
+    result = _issue_command({
+        "command": "undefer",
         "entity": entity,
     })
     if await standard_abort(message, result):
