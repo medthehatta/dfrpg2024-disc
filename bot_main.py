@@ -49,6 +49,7 @@ bot_command_dispatch = {}
 
 
 player_mapping = {}
+player_object_mapping = {}
 
 player_last_rolls = {}
 
@@ -365,6 +366,44 @@ def pretty_print_entity(entity):
     return f"{first_line}\n{aspect_line}"
 
 
+def pretty_print_order(order_):
+    order = order_.get("order", [])
+    current = order_.get("current")
+    entities = order_.get("entities")
+
+    if order and entities:
+        wrapped = [
+            f"[{i}.{entity}]" if i == (current + 1) else f"{i}.{entity}"
+            for (i, entity) in enumerate(order, start=1)
+        ]
+
+        if current is not None:
+            active = order[current]
+            active_player = next(
+                (
+                    player for (player, entity) in player_mapping.items()
+                    if entity == active
+                ),
+                None,
+            )
+            if active_player:
+                active_mention = player_object_mapping[active_player].mention
+            else:
+                active_mention = None
+
+        if active_mention:
+            return f"{active_mention}: {' '.join(wrapped)}"
+        else:
+            return f"{' '.join(wrapped)}"
+
+    if (not order) and entities:
+        return f"Ready: {' '.join(entities)}"
+
+    else:
+        print(f"{order=} {entities=}")
+        return f"No turn order"
+
+
 def targeted(func):
 
     @wraps(func)
@@ -399,7 +438,7 @@ async def standard_abort(message, response):
         await _as_json_file(
             message.channel,
             response,
-            summary=f"{message.author.mention}: Error: {desc}",
+            summary=f"{message.author.mention}: Error: `{desc}`",
             filename="error.txt",
         )
         return True
@@ -436,6 +475,7 @@ async def _claim(message, entity):
         author = message.author.display_name
         entity_name = lower_map[entity.lower()]
         player_mapping[author] = entity_name
+        player_object_mapping[author] = message.author
         await message.channel.send(f"{author} is now playing {entity_name}")
 
 
@@ -444,6 +484,7 @@ async def _unclaim(message):
     author = message.author.display_name
     if author in player_mapping:
         entity = player_mapping.pop(author)
+        player_object_mapping.pop(author)
         await message.channel.send(f"{author} is no longer playing {entity}")
     else:
         await message.channel.send(f"{author} is not playing any character")
@@ -739,6 +780,71 @@ async def _amend(message, maybe_bonuses):
         f"**`{roll_value + bonus_value}`**",
     ]).replace("``", "")
     await message.channel.send(display)
+
+
+@cmds.register(r"[.](order_add|order|ord)(\s+(?P<maybe_bonuses>.*))")
+@targeted
+async def _order_add(message, maybe_bonuses, entity):
+    maybe_bonuses = maybe_bonuses or ""
+    bonuses = [b.group(0) for b in re.finditer(r'[+-]\d+', maybe_bonuses)]
+    bonus_values = [
+        -int(b[1:]) if b.startswith("-") else int(b[1:])
+        for b in bonuses
+    ]
+    bonus_value = sum(bonus_values)
+
+    result = _issue_command({
+        "command": "order_add",
+        "entity": entity,
+        "bonus": bonus_value,
+    })
+    if await standard_abort(message, result):
+        return
+
+    order = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_order(order))
+
+
+@cmds.register(r"[.](order_next|next)")
+async def _order_next(message):
+    result = _issue_command({
+        "command": "next",
+    })
+    if await standard_abort(message, result):
+        return
+
+    order = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_order(order))
+
+
+@cmds.register(r"[.](order_start|start)")
+async def _order_start(message):
+    result = _issue_command({
+        "command": "start_order",
+    })
+    if await standard_abort(message, result):
+        return
+
+    order = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_order(order))
+
+
+@cmds.register(r"[.](order_clear|order[#])")
+async def _order_clear(message):
+    result = _issue_command({
+        "command": "clear_order",
+    })
+    if await standard_abort(message, result):
+        return
+
+    await message.channel.send("Turn order cleared")
+
+
+@cmds.register(r"[.](order_list|order_show|order[?]|order\s*$)")
+async def _order_list(message):
+    game = _get_game()
+    print(f"{game['order']=}")
+    await message.channel.send(pretty_print_order(game.get("order", {})))
 
 
 #
