@@ -851,7 +851,7 @@ async def _order_start(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_clear|order[#])")
+@cmds.register(r"[.](order_clear|order[#]|stop)")
 async def _order_clear(message):
     result = _issue_command({
         "command": "clear_order",
