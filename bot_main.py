@@ -509,7 +509,7 @@ async def _claimed(message):
 @targeted
 async def _info(message, entity=None):
     game = _get_game()
-    ent = get_in(["result", "entities", entity], game)
+    ent = get_in(["entities", entity], game)
     await message.channel.send(pretty_print_entity(ent))
 
 
