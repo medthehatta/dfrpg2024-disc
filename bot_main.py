@@ -241,7 +241,11 @@ def _issue_command(cmd):
 
 def _get_game():
     res = requests.get(base_url + "/game")
-    return res.json()
+    data = res.json()
+    if data["ok"]:
+        return data["result"]
+    else:
+        return {}
 
 
 @bot.command()
@@ -289,7 +293,7 @@ async def _dispatch_bot_command(message):
 
 
 def _insensitive_entity(game, name):
-    entities = get_in(["result", "entities"], game)
+    entities = get_in(["entities"], game)
     lower_map = {e.lower(): e for e in entities}
     return lower_map.get(name.lower(), name)
 
@@ -467,7 +471,7 @@ async def _commands(message):
 @cmds.register(r"[.](claim|c)\s+(?P<entity>\w+)")
 async def _claim(message, entity):
     game = _get_game()
-    entities = get_in(["result", "entities"], game)
+    entities = get_in(["entities"], game)
     lower_map = {e.lower(): e for e in entities}
     if entity.lower() not in lower_map:
         await message.channel.send(f"{message.author.mention}: No such entity: {entity}")
@@ -782,7 +786,7 @@ async def _amend(message, maybe_bonuses):
     await message.channel.send(display)
 
 
-@cmds.register(r"[.](order_add|order|ord)(\s+(?P<maybe_bonuses>.*))")
+@cmds.register(r"[.](order_add|order|ord|order[+]|ord[+])(\s+(?P<maybe_bonuses>.*))")
 @targeted
 async def _order_add(message, maybe_bonuses, entity):
     maybe_bonuses = maybe_bonuses or ""
@@ -817,6 +821,18 @@ async def _order_next(message):
     await message.channel.send(pretty_print_order(order))
 
 
+@cmds.register(r"[.](order_back|back)")
+async def _order_back(message):
+    result = _issue_command({
+        "command": "back",
+    })
+    if await standard_abort(message, result):
+        return
+
+    order = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_order(order))
+
+
 @cmds.register(r"[.](order_start|start)")
 async def _order_start(message):
     result = _issue_command({
@@ -840,10 +856,22 @@ async def _order_clear(message):
     await message.channel.send("Turn order cleared")
 
 
+@cmds.register(r"[.](order_drop|drop|remove|order[-])")
+async def _order_drop(message, entity=None):
+    result = _issue_command({
+        "command": "drop_from_order",
+        "entity": entity,
+    })
+    if await standard_abort(message, result):
+        return
+
+    order = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_order(order))
+
+
 @cmds.register(r"[.](order_list|order_show|order[?]|order\s*$)")
 async def _order_list(message):
     game = _get_game()
-    print(f"{game['order']=}")
     await message.channel.send(pretty_print_order(game.get("order", {})))
 
 
