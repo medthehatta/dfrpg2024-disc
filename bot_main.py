@@ -542,7 +542,7 @@ def _omit_match_spans(matches, string):
         for ((s1, e1), (s2, e2))
         in sliding_window(2, [(0, 0)] + [m.span() for m in matches] + [(last_idx, None)])
     ]
-    return "".join(string[a:b] for (a, b) in spans)
+    return re.sub(r'(\s){2,}', r'\1', "".join(string[a:b] for (a, b) in spans))
 
 
 @cmds.register(r"[.](add_aspect|aspect[+]|a[+])(?P<maybe_aspect>.+)")
@@ -640,7 +640,7 @@ async def _clear_consequences(message, max_cons):
     if await standard_abort(message, result):
         return
 
-    await message.channel.send(f"All consequences up to {max_cons} cleared")
+    await message.channel.send(f"All consequences up to {k} cleared")
 
 
 @cmds.register(
