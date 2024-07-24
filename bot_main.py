@@ -137,6 +137,19 @@ class CommandRegistrar:
             )
         ]
 
+    def search_by_alias(self, string):
+        aliases_rev = {}
+        for (func, aliases) in self.aliases.items():
+            for alias in aliases:
+                aliases_rev[alias] = func
+
+        return [
+            func for (alias, func) in aliases_rev.items()
+            if (
+                string.strip().lstrip("_.").lower() == alias.lower()
+            )
+        ]
+
     def all_function_names(self):
         return [
             self.function_name(func) for func in self.commands.values()
@@ -1622,22 +1635,22 @@ async def _help(message, command=None):
         out_f = ""
         for (group, funcs) in cmds.groups.items():
             out_f += f"**{group.title()}**:\n"
-            names = list(unique(cmds.function_name(func) for func in funcs))
-            quoted_function_names = [f"`{name}`" for name in names]
+            names = [cmds.function_name(func) for func in funcs]
+            shortest_aliases = [
+                min(cmds.aliases[func], key=len) for func in funcs
+            ]
+            quoted_function_names = [
+                f"`{name} ({a})`" if a != name else f"`{name}`"
+                for (name, a) in unique(zip(names, shortest_aliases))
+            ]
             batches = partition_all(5, quoted_function_names)
             out_f += "\n".join(" ".join(batch) for batch in batches)
             out_f += "\n\n"
         await message.channel.send(out_f)
 
     else:
-        with_dot = cmds.all_matches("." + command)
-        without_dot = cmds.all_matches(command)
-        as_function = cmds.search_by_function_name(command)
-        matches = list(unique(with_dot + without_dot + as_function))
-
-        exact = [m for m in matches if cmds.function_name(m) == command.strip()]
-        if exact:
-            matches = exact
+        as_alias = cmds.search_by_alias(command)
+        matches = list(unique(as_alias))
 
         if len(matches) == 0:
             await message.channel.send(f"No commands matching '{command}'")
