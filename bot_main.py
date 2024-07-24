@@ -104,7 +104,7 @@ class CommandRegistrar:
         return [
             func for (_, func) in self.commands.items()
             if (
-                self.function_name(string) in self.function_name(func)
+                string.strip().lstrip("_.") in self.function_name(func)
             )
         ]
 
