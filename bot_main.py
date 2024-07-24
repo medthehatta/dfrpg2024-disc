@@ -67,12 +67,14 @@ class CommandRegistrar:
 
     def __init__(self):
         self.commands = {}
+        self.groups = {}
 
-    def register(self, *regexes):
+    def register(self, *regexes, group="miscellaneous"):
 
         def _register(func):
             for regex in regexes:
                 self.commands[regex] = func
+                self.groups[group] = self.groups.get(group, []) + [func]
 
             @wraps(func)
             def _a(*args, **kwargs):
@@ -501,7 +503,7 @@ async def _test(message):
     await message.channel.send(f"Successfully found message: {message.content}")
 
 
-@cmds.register(r"[.](claim|c|assume)\s+(?P<entity>\w+)")
+@cmds.register(r"[.](claim|c|assume)\s+(?P<entity>\w+)", group="targeting")
 async def _claim(message, entity):
     """
     Aliases: claim, c, assume
@@ -534,7 +536,7 @@ async def _claim(message, entity):
         await message.channel.send(f"{author} is now playing {entity_name}")
 
 
-@cmds.register(r"[.](unclaim|unassume)")
+@cmds.register(r"[.](unclaim|unassume)", group="targeting")
 async def _unclaim(message):
     """
     Aliases: unclaim, unassume
@@ -563,7 +565,7 @@ async def _unclaim(message):
         await message.channel.send(f"{author} is not playing any character")
 
 
-@cmds.register(r"[.](claimed|assumed)")
+@cmds.register(r"[.](claimed|assumed)", group="targeting")
 async def _claimed(message):
     """
     Aliases: claimed, assumed
@@ -575,7 +577,7 @@ async def _claimed(message):
     await message.channel.send(json.dumps(player_mapping))
 
 
-@cmds.register(r"[.](info)(\s+(?P<entity>\w+))?")
+@cmds.register(r"[.](info)(\s+(?P<entity>\w+))?", group="entity info")
 @targeted
 async def _info(message, entity=None):
     """
@@ -597,7 +599,7 @@ async def _info(message, entity=None):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](entities)")
+@cmds.register(r"[.](entities)", group="entity info")
 async def _entities(message):
     """
     Aliases: entities
@@ -615,7 +617,7 @@ async def _entities(message):
     await message.channel.send(ents_f)
 
 
-@cmds.register(r"[.](increment_fp|fp[+])(\s+(?P<entity>\w+))?")
+@cmds.register(r"[.](increment_fp|fp[+])(\s+(?P<entity>\w+))?", group="fate")
 @targeted
 async def _increment_fp(message, entity):
     """
@@ -640,7 +642,7 @@ async def _increment_fp(message, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](decrement_fp|fp[-])(\s+(?P<entity>\w+))?")
+@cmds.register(r"[.](decrement_fp|fp[-])(\s+(?P<entity>\w+))?", group="fate")
 @targeted
 async def _decrement_fp(message, entity):
     """
@@ -675,7 +677,7 @@ def _omit_match_spans(matches, string):
     return re.sub(r'(\s){2,}', r'\1', "".join(string[a:b] for (a, b) in spans))
 
 
-@cmds.register(r"[.](add_aspect|aspect[+]|a[+])(?P<maybe_aspect>.+)")
+@cmds.register(r"[.](add_aspect|aspect[+]|a[+])(?P<maybe_aspect>.+)", group="aspects")
 @targeted
 async def _add_aspect(message, maybe_aspect, entity):
     """
@@ -754,7 +756,7 @@ async def _add_aspect(message, maybe_aspect, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](remove_aspect|aspect[-]|a[-])(?P<maybe_aspect>.+)")
+@cmds.register(r"[.](remove_aspect|aspect[-]|a[-])(?P<maybe_aspect>.+)", group="aspects")
 @targeted
 async def _remove_aspect(message, maybe_aspect, entity):
     """
@@ -787,7 +789,7 @@ async def _remove_aspect(message, maybe_aspect, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](tag_aspect|tag)(?P<maybe_aspect>.+)")
+@cmds.register(r"[.](tag_aspect|tag)(?P<maybe_aspect>.+)", group="aspects")
 @targeted
 async def _tag_aspect(message, maybe_aspect, entity):
     """
@@ -822,7 +824,10 @@ async def _tag_aspect(message, maybe_aspect, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](clear_all_temporary_aspects|clear_temporary_aspects|aspect[#]|a[#])")
+@cmds.register(
+    r"[.](clear_all_temporary_aspects|clear_temporary_aspects|aspect[#]|a[#])",
+    group="aspects",
+)
 async def _clear_all_temporary_aspects(message):
     """
     Aliases: clear_all_temporary_aspects, clear_temporary_aspects, aspect#, a#
@@ -847,7 +852,10 @@ async def _clear_all_temporary_aspects(message):
     await message.channel.send(f"All temporary aspects cleared")
 
 
-@cmds.register(r"[.](clear_consequences|cons#)\s+(?P<max_cons>.+)")
+@cmds.register(
+    r"[.](clear_consequences|cons#)\s+(?P<max_cons>.+)",
+    group="aspects",
+)
 async def _clear_consequences(message, max_cons):
     """
     Aliases: clear_consequences, cons#
@@ -891,6 +899,7 @@ async def _clear_consequences(message, max_cons):
 @cmds.register(
     r"[.](inflict_stress|stress[+]|s[+])\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
     r"[.](inflict_stress|stress[+]|s[+])\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+    group="stress",
 )
 @targeted
 async def _inflict_stress(message, track, box, entity=None):
@@ -935,6 +944,7 @@ async def _inflict_stress(message, track, box, entity=None):
 @cmds.register(
     r"[.](clear_stress|stress[-]|s[-])\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
     r"[.](clear_stress|stress[-]|s[-])\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+    group="stress",
 )
 @targeted
 async def _clear_stress(message, track, box, entity=None):
@@ -975,7 +985,7 @@ async def _clear_stress(message, track, box, entity=None):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](clear_all_stress|stress[#]|s[#])")
+@cmds.register(r"[.](clear_all_stress|stress[#]|s[#])", group="stress")
 async def _clear_all_stress(message):
     """
     Aliases: clear_all_stress, stress#, s#
@@ -995,7 +1005,7 @@ async def _clear_all_stress(message):
     await message.channel.send(f"Cleared all stress")
 
 
-@cmds.register(r"[.](target|t\b)(\s+(?P<entity>\w+))?")
+@cmds.register(r"[.](target|t\b)(\s+(?P<entity>\w+))?", group="targeting")
 @targeted
 async def _target(message, entity):
     """
@@ -1054,7 +1064,7 @@ async def _target(message, entity):
         await func(message, *args, **kwargs)
 
 
-@cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?")
+@cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?", group="rolling")
 async def _roll(message, maybe_bonuses):
     """
     Aliases: roll
@@ -1116,7 +1126,7 @@ async def _roll(message, maybe_bonuses):
     await message.channel.send(display)
 
 
-@cmds.register(r"[.]amend(\s+(?P<maybe_bonuses>.*))?")
+@cmds.register(r"[.]amend(\s+(?P<maybe_bonuses>.*))?", group="rolling")
 async def _amend(message, maybe_bonuses):
     """
     Aliases: amend
@@ -1177,7 +1187,7 @@ async def _amend(message, maybe_bonuses):
     await message.channel.send(display)
 
 
-@cmds.register(r"[.](order_add|order|ord|order[+]|ord[+])(\s+(?P<maybe_bonuses>.*))")
+@cmds.register(r"[.](order_add|order|ord|order[+]|ord[+])(\s+(?P<maybe_bonuses>.*))", group="turn order")
 @targeted
 async def _order_add(message, maybe_bonuses, entity):
     """
@@ -1222,7 +1232,7 @@ async def _order_add(message, maybe_bonuses, entity):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_next|next)")
+@cmds.register(r"[.](order_next|next)", group="turn order")
 async def _order_next(message):
     """
     Aliases: order_next, next
@@ -1239,7 +1249,7 @@ async def _order_next(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_back|back|previous|prev)")
+@cmds.register(r"[.](order_back|back|previous|prev)", group="turn order")
 async def _order_back(message):
     """
     Aliases: order_back, back, previous, prev
@@ -1256,7 +1266,7 @@ async def _order_back(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_start|start)")
+@cmds.register(r"[.](order_start|start)", group="turn order")
 async def _order_start(message):
     """
     Aliases: order_start, start
@@ -1273,7 +1283,7 @@ async def _order_start(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_clear|order[#]|stop)")
+@cmds.register(r"[.](order_clear|order[#]|stop)", group="turn order")
 async def _order_clear(message):
     """
     Aliases: order_clear, order#, stop
@@ -1289,7 +1299,7 @@ async def _order_clear(message):
     await message.channel.send("Turn order cleared")
 
 
-@cmds.register(r"[.](order_drop|drop|remove|order[-])")
+@cmds.register(r"[.](order_drop|drop|remove|order[-])", group="turn order")
 @targeted
 async def _order_drop(message, entity=None):
     """
@@ -1320,7 +1330,7 @@ async def _order_drop(message, entity=None):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_defer|defer)")
+@cmds.register(r"[.](order_defer|defer)", group="turn order")
 async def _order_defer(message):
     """
     Aliases: order_defer, defer
@@ -1353,7 +1363,7 @@ async def _order_defer(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_undefer|undefer|act)")
+@cmds.register(r"[.](order_undefer|undefer|act)", group="turn order")
 @targeted
 async def _order_undefer(message, entity):
     """
@@ -1384,7 +1394,7 @@ async def _order_undefer(message, entity):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_list|order_show|order[?]|order\s*$)")
+@cmds.register(r"[.](order_list|order_show|order[?]|order\s*$)", group="turn order")
 async def _order_list(message):
     """
     Aliases: order_list, order_show, order?, order [followed by nothing]
@@ -1399,7 +1409,7 @@ async def _order_list(message):
     await message.channel.send(pretty_print_order(game.get("order", {})))
 
 
-@cmds.register(r"[.](create_entity|entity[+]|e[+])\s+(?P<props>.*)")
+@cmds.register(r"[.](create_entity|entity[+]|e[+])\s+(?P<props>.*)", group="entity info")
 async def _create_entity(message, props):
     """
     Aliases: create_entity, entity+, e+
@@ -1470,7 +1480,10 @@ async def _create_entity(message, props):
     await message.channel.send(pretty_print_entity(entity))
 
 
-@cmds.register(r"[.](remove_entity|entity[-]|e[-])(\s+(?P<entity>\w+))?")
+@cmds.register(
+    r"[.](remove_entity|entity[-]|e[-])(\s+(?P<entity>\w+))?",
+    group="entity info",
+)
 @targeted
 async def _remove_entity(message, entity=None):
     """
@@ -1514,11 +1527,14 @@ async def _help(message, command=None):
 
     """
     if command is None:
-        quoted_function_names = [
-            f"`{name}`" for name in cmds.all_function_names()
-        ]
-        batches = partition_all(5, quoted_function_names)
-        out_f = "\n".join(" ".join(batch) for batch in batches)
+        out_f = ""
+        for (group, funcs) in cmds.groups.items():
+            out_f += f"**{group.title()}**:\n"
+            names = [cmds.function_name(func) for func in funcs]
+            quoted_function_names = [f"`{name}`" for name in names]
+            batches = partition_all(5, quoted_function_names)
+            out_f += "\n".join(" ".join(batch) for batch in batches)
+            out_f += "\n\n"
         await message.channel.send(out_f)
 
     else:
