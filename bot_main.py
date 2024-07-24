@@ -2,6 +2,7 @@ import asyncio
 from functools import wraps
 from contextlib import suppress
 import json
+import os
 from uuid import uuid1
 import random
 import re
@@ -51,7 +52,7 @@ bot_command_dispatch = {}
 
 
 player_mapping = {}
-player_object_mapping = {}
+player_mention_mapping = {}
 
 player_last_rolls = {}
 
@@ -213,6 +214,27 @@ async def _as_json_file(ctx, data, summary="", filename="output.txt"):
     error_file = discord.File(fh.name, filename=filename)
     await ctx.send(summary, file=error_file)
     fh.close()
+
+
+def write_player_mapping():
+    with open("player_mapping.json", "w") as f:
+        json.dump(
+            {"users": player_mapping, "mentions": player_mention_mapping},
+            f,
+        )
+
+
+def read_player_mapping():
+    global player_mapping
+    global player_mention_mapping
+    if os.path.isfile("player_mapping.json"):
+        with open("player_mapping.json", "r") as f:
+            mappings = json.load(f)
+            player_mapping = mappings["users"]
+            player_mention_mapping = mappings["mentions"]
+    else:
+            player_mapping = {}
+            player_mention_mapping = {}
 
 
 #
@@ -488,7 +510,7 @@ def pretty_print_order(order_):
                 None,
             )
             if active_player:
-                active_mention = player_object_mapping[active_player].mention
+                active_mention = player_mention_mapping[active_player]
             else:
                 active_mention = None
 
@@ -606,8 +628,6 @@ async def _claim(message, entity):
         shared channels than it is in direct messages with the bot.  You may
         need to .claim/.assume both in DM and in the channel.
 
-        Technical note: the associations are cleared if the bot is restarted.
-
     """
     game = _get_game()
     entities = get_in(["entities"], game)
@@ -618,7 +638,8 @@ async def _claim(message, entity):
         author = message.author.display_name
         entity_name = lower_map[entity.lower()]
         player_mapping[author] = entity_name
-        player_object_mapping[author] = message.author
+        player_mention_mapping[author] = message.author.mention
+        write_player_mapping()
         await message.channel.send(f"{author} is now playing {entity_name}")
 
 
@@ -635,15 +656,11 @@ async def _unclaim(message):
 
     List the existing associations with .claimed/.assumed
 
-    Tips:
-
-        Technical note: the associations are cleared if the bot is restarted.
-
     """
     author = message.author.display_name
     if author in player_mapping:
         entity = player_mapping.pop(author)
-        player_object_mapping.pop(author)
+        player_mention_mapping.pop(author)
         await message.channel.send(f"{author} is no longer playing {entity}")
     else:
         await message.channel.send(f"{author} is not playing any character")
@@ -1893,4 +1910,5 @@ async def _help(message, command=None):
 #
 
 if __name__ == "__main__":
+    read_player_mapping()
     bot.run(config["token"])
