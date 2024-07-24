@@ -668,8 +668,8 @@ async def _info(message, entity=None):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(["summary"], group="entity info")
-async def _summary(message, entity=None):
+@cmds.register(["info_all"], group="entity info")
+async def _info_all(message, entity=None):
     """
     Display an overview of all the entities, including their stress, fate, and
     aspects.
