@@ -1633,6 +1633,48 @@ async def _order_undefer(message, entity):
 
 
 @cmds.register(
+    ["mooks"],
+    rest=r"(\s+(?P<name>\w+)\s+(?P<count>\d+))?",
+    group="entity info",
+)
+async def _create_mooks(message, name, count):
+    """
+    Add a bunch of identical mooks to the scene.
+
+    The mooks will not have any health tracks or fate points, and will have the
+    same name but with a number at the end.
+
+    Examples:
+
+        .mooks plant 5
+
+    """
+    count = int(count)
+    failures = []
+
+    for i in range(1, count+1):
+        instance = f"{name}{i}"
+        result = _issue_command({
+            "command": "create_entity",
+            "name": instance,
+            "stress_maxes": {
+                k: 0 for k in ["physical", "mental", "social", "hunger"]
+            },
+            "refresh": 0,
+            "fate": 0,
+        })
+        if await standard_abort(message, result):
+            failures.append(instance)
+
+    if failures:
+        failures_f = ", ".join(f"`{n}`" for n in failures)
+        await message.channel.send(f"Failed to create some mooks: {failures_f}")
+    else:
+        await message.channel.send(f"Made {name}1 through {name}{count}.")
+
+
+
+@cmds.register(
     ["create_entity", "entity+", "e+"],
     rest=r"\s+(?P<props>.*)",
     group="entity info",
