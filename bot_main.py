@@ -653,7 +653,10 @@ async def _summary(message, entity=None):
     aspects.
     """
     game = _get_game()
-    ents = game.get("entities", {}).values()
+    ents = sorted(
+        game.get("entities", {}).values(),
+        key=lambda e: e["name"],
+    )
     if ents:
         pretty = [pretty_print_entity(ent) for ent in ents]
         spaced = [p + "\n" if not p.endswith("\n") else p for p in pretty]
