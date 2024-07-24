@@ -516,7 +516,8 @@ async def _claim(message, entity):
     Players will typically assume their player character and then change it
     rarely if ever.
 
-    List the current associations with .claimed/.assumed.
+    List the current associations with .claimed/.assumed.  Remove an
+    association with .unclaim/.unassume.
 
     Examples:
 
