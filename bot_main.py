@@ -617,24 +617,32 @@ async def _entities(message):
     await message.channel.send(ents_f)
 
 
-@cmds.register(r"[.](increment_fp|fp[+])(\s+(?P<entity>\w+))?", group="fate")
+@cmds.register(
+    r"[.](increment_fp|fp[+])(\s+(?P<amount>\d+))?",
+    group="fate"
+)
 @targeted
-async def _increment_fp(message, entity):
+async def _increment_fp(message, amount=None, entity=None):
     """
     Aliases: increment_fp, fp+
 
     Targeted.  (See .target)
 
-    Increment the fate points available to an entity by 1.
+    Increment the fate points available to an entity by the provided value (or
+    by 1 if no value is provided).
 
     Examples:
 
         .fp+ @ Weft
 
-        .fp+ Weft
+        .fp+ 2 @ Weft
 
     """
-    result = _issue_command({"command": "increment_fp", "entity": entity})
+    result = _issue_command({
+        "command": "increment_fp",
+        "entity": entity,
+        "amount": amount,
+    })
     if await standard_abort(message, result):
         return
 
@@ -642,24 +650,32 @@ async def _increment_fp(message, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](decrement_fp|fp[-])(\s+(?P<entity>\w+))?", group="fate")
+@cmds.register(
+    r"[.](decrement_fp|fp[-])(\s+(?P<amount>\d+))?",
+    group="fate",
+)
 @targeted
-async def _decrement_fp(message, entity):
+async def _decrement_fp(message, amount=None, entity=None):
     """
     Aliases: decrement_fp, fp-
 
     Targeted.  (See .target)
 
-    Decrement the fate points available to an entity by 1.
+    Decrement the fate points available to an entity by the provided value (or
+    by 1 if no value is provided).
 
     Examples:
 
         .fp- @ Weft
 
-        .fp- Weft
+        .fp- 2 @ Weft
 
     """
-    result = _issue_command({"command": "decrement_fp", "entity": entity})
+    result = _issue_command({
+        "command": "decrement_fp",
+        "entity": entity,
+        "amount": amount,
+    })
     if await standard_abort(message, result):
         return
 
