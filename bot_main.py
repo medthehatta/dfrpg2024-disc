@@ -1729,6 +1729,34 @@ async def _remove_entity(message, entity=None):
     await message.channel.send(f"Removed entity {entity}")
 
 
+# TODO: ACTUALLY ENABLE THIS ONCE THE BACKEND WORKS
+# @cmds.register("undo")
+async def _undo(message):
+    """
+    Attempt to undo the previous command if you issued it in error.
+
+    Avoid running other commands while attempting to undo.  The command will
+    try to detect contention, but it won't be perfect.
+    """
+    await message.channel.send(
+        "Undo requested.  Please wait for confirmation."
+    )
+    res = requests.post(base_url + "/undo")
+    res.raise_for_status()
+    result = res.json()
+    if await standard_abort(message, result):
+        return
+
+    res2 = requests.get(base_url + "/checkpoints")
+    res2.raise_for_status()
+    curr = get_in(["result", "current"], res2.json())
+
+    res3 = requests.get(base_url + f"/checkpoint/{curr}/diff")
+    res3.raise_for_status()
+    diff = res3.json()
+    await _as_json_file(message.channel, diff, "Undo completed successfully")
+
+
 @cmds.register("targeting", group="targeting", doc_only=True)
 async def _targeting(message):
     """
