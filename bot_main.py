@@ -404,7 +404,7 @@ def pretty_print_order(order_):
 
     if order and entities:
         wrapped = [
-            f"[{i}.{entity}]" if i == (current + 1) else f"{i}.{entity}"
+            f"`[{i}.{entity}]`" if i == (current + 1) else f"`{i}.{entity}`"
             for (i, entity) in enumerate(order, start=1)
         ]
 
@@ -433,7 +433,7 @@ def pretty_print_order(order_):
             return f"{' '.join(wrapped)}{defer_msg}"
 
     if (not order) and entities:
-        return f"Ready: {' '.join(entities)}"
+        return f"Ready: `{' '.join(entities)}`"
 
     else:
         print(f"{order=} {entities=}")
@@ -585,7 +585,7 @@ async def _claimed(message):
 
     Claim/assume an entity with .claim/.assume.
     """
-    await message.channel.send(json.dumps(player_mapping))
+    await message.channel.send("`" + json.dumps(player_mapping) + "`")
 
 
 @cmds.register(r"[.](info)(\s+(?P<entity>\w+))?", group="entity info")
@@ -622,7 +622,7 @@ async def _entities(message):
     game = _get_game()
     ents = get_in(["entities"], game)
     if ents:
-        ents_f = " ".join(v["name"] for v in ents.values())
+        ents_f = " ".join(f"`{v['name']}`" for v in ents.values())
     else:
         ents_f = "No entities"
     await message.channel.send(ents_f)
