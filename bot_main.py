@@ -518,6 +518,12 @@ async def _claim(message, entity):
 
     List the current associations with .claimed/.assumed.
 
+    Examples:
+
+        .claim Weft
+
+        .assume Weft
+
     Tips:
 
         Note that from the bot's point of view, your user ID is different in
