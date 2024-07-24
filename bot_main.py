@@ -811,11 +811,14 @@ async def _add_aspect(message, maybe_aspect, entity):
     be added with one free tag.
 
     In addition to generic aspects, also supports indicating an aspect is: (A)
-    a consequence with some severity, (B) a fragile aspect, or (C) a sticky
-    aspect.
+    a consequence with some severity, (B) a fragile aspect, (C) a sticky
+    aspect, or (D) an aspect placed with style.
 
     These annotations will be respected in commands that distinguish between
     temporary aspects, or consqeuence severities, etc.
+
+    In particular, aspects placed with style don't get a "style" marker, they
+    simply get an extra tag, indicated with "(#)" in the aspect name.
 
     Examples:
 
@@ -824,6 +827,8 @@ async def _add_aspect(message, maybe_aspect, entity):
         .a+ (mild) sprained ankle @ Weft
 
         .a+ (sticky) derelict @ scene
+
+        .a+ (style) spicy @ diner
 
         .a+ (fragile) stiff breeze @ scene
 
@@ -925,6 +930,10 @@ async def _tag_aspect(message, maybe_aspect, entity):
     Tag an aspect on an entity which has a free tag on it.  This just tracks
     that the free tag has been used, but does not automatically apply bonuses
     to a roll or anything like that.
+
+    Aspects placed with style (when the roll to declare the aspect succeeds
+    with style, see the House Rules and the command documentation for
+    .add_aspect) will have two free tags.
 
     Examples:
 
