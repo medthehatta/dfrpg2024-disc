@@ -473,7 +473,8 @@ def pretty_print_order(order_):
         ]
 
         if deferred:
-            defer_msg = f"\ndeferred: {' '.join(deferred)}"
+            deferred_f = [f"`{x}`" for x in deferred]
+            defer_msg = f"\ndeferred: {', '.join(deferred_f)}"
         else:
             defer_msg = ""
 
@@ -1374,7 +1375,7 @@ async def _amend(message, maybe_bonuses):
 
 
 @cmds.register(
-    ["order_add", "order", "ord", "order+", "ord+"],
+    ["order_add", "order+", "ord+"],
     rest=r"(\s+(?P<maybe_bonuses>.*))?",
     group="turn order",
 )
@@ -1584,7 +1585,7 @@ async def _order_undefer(message, entity):
 
 
 @cmds.register(
-    ["order_list", "order_show", "order?"],
+    ["order_list", "order_show", "order"],
     group="turn order",
 )
 async def _order_list(message):
