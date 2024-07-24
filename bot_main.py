@@ -996,8 +996,8 @@ async def _recover(message, max_cons, entity=None):
 @cmds.register(
     ["inflict_stress", "stress+", "s+"],
     rest=[
-        r"\s+((?P<box>\d+).*((?P<track>\w+)))",
-        r"\s+(((?P<track>\w+)).*(?P<box>\d+))",
+        r"\s+((?P<box>\d+)\s+((?P<track>\w+)))",
+        r"\s+(((?P<track>\w+))\s+(?P<box>\d+))",
     ],
     group="stress",
 )
@@ -1040,8 +1040,8 @@ async def _inflict_stress(message, track, box, entity=None):
 @cmds.register(
     ["absorb_stress", "stress!", "s!"],
     rest=[
-        r"\s+((?P<amount>\d+).*((?P<track>\w+)))",
-        r"\s+(((?P<track>\w+)).*(?P<amount>\d+))",
+        r"\s+((?P<amount>\d+)\s+((?P<track>\w+)))",
+        r"\s+(((?P<track>\w+))\s+(?P<amount>\d+))",
     ],
     group="stress",
 )
