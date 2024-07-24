@@ -102,15 +102,17 @@ class CommandRegistrar:
         return [
             func for (_, func) in self.commands.items()
             if (
-                string in func.__name__ or
-                string in func.__name__.lstrip("_")
+                self.function_name(string) in self.function_name(func)
             )
         ]
 
     def all_function_names(self):
         return [
-            func.__name__.lstrip("_") for func in self.commands.values()
+            self.function_name(func) for func in self.commands.values()
         ]
+
+    def function_name(self, func):
+        return func.__name__.strip().lstrip("_.")
 
 
 cmds = CommandRegistrar()
@@ -489,19 +491,36 @@ async def inline_abort(message, response, description):
 
 @cmds.register(r"[.]test")
 async def _test(message):
+    """
+    Aliases: test
+
+    Echo back the contents of the test message.
+
+    Intended for debugging purposes.
+    """
     await message.channel.send(f"Successfully found message: {message.content}")
 
 
-@cmds.register(r"[.]commands")
-async def _commands(message):
-    listing = []
-    for (regex, func) in cmds.commands.items():
-        listing.append(f"{func.__name__}  --  {regex}")
-    await message.channel.send("```\n" + "\n".join(listing) + "\n```")
-
-
-@cmds.register(r"[.](claim|c)\s+(?P<entity>\w+)")
+@cmds.register(r"[.](claim|c|assume)\s+(?P<entity>\w+)")
 async def _claim(message, entity):
+    """
+    Aliases: claim, c, assume
+
+    Provide the name of an entity to assume the role of.  This entity will then
+    be used as the default target for any targeted commands issued by you.
+    (See .target)
+
+    Intended primarily for GM use, as they may assume the role of various NPCs.
+    Players will typically assume their player character and then change it
+    rarely if ever.
+
+    List the current associations with .claimed/.assumed.
+
+    Tips:
+
+        Technical note: the associations are cleared if the bot is restarted.
+
+    """
     game = _get_game()
     entities = get_in(["entities"], game)
     lower_map = {e.lower(): e for e in entities}
@@ -515,8 +534,26 @@ async def _claim(message, entity):
         await message.channel.send(f"{author} is now playing {entity_name}")
 
 
-@cmds.register(r"[.]unclaim")
+@cmds.register(r"[.](unclaim|unassume)")
 async def _unclaim(message):
+    """
+    Aliases: unclaim, unassume
+
+    If you, the player, have used .claim/.assume to assume the role of an
+    entity (like your player character), this command will clear that
+    association.
+
+    Intended primarily for GM use, as they may assume the role of various NPCs.
+    Players will typically assume their player character and then change it
+    rarely if ever.
+
+    List the existing associations with .claimed/.assumed
+
+    Tips:
+
+        Technical note: the associations are cleared if the bot is restarted.
+
+    """
     author = message.author.display_name
     if author in player_mapping:
         entity = player_mapping.pop(author)
@@ -526,14 +563,35 @@ async def _unclaim(message):
         await message.channel.send(f"{author} is not playing any character")
 
 
-@cmds.register(r"[.]claimed")
+@cmds.register(r"[.](claimed|assumed)")
 async def _claimed(message):
+    """
+    Aliases: claimed, assumed
+
+    Dump the mapping between players and their "assumed" entities.
+
+    Claim/assume an entity with .claim/.assume.
+    """
     await message.channel.send(json.dumps(player_mapping))
 
 
 @cmds.register(r"[.](info)(\s+(?P<entity>\w+))?")
 @targeted
 async def _info(message, entity=None):
+    """
+    Aliases: info
+
+    Targeted.  (See .target)
+
+    Display an entity, including its stress, fate, and aspects.
+
+    Examples:
+
+        .info @ Weft
+
+        .info Weft
+
+    """
     game = _get_game()
     ent = get_in(["entities", entity], game)
     await message.channel.send(pretty_print_entity(ent))
@@ -541,6 +599,13 @@ async def _info(message, entity=None):
 
 @cmds.register(r"[.](entities)")
 async def _entities(message):
+    """
+    Aliases: entities
+
+    List the entities being tracked by the bot.
+
+    Intended for GM use.  Using this may spoiler the secret presence of NPCs!
+    """
     game = _get_game()
     ents = get_in(["entities"], game)
     if ents:
@@ -553,6 +618,20 @@ async def _entities(message):
 @cmds.register(r"[.](increment_fp|fp[+])(\s+(?P<entity>\w+))?")
 @targeted
 async def _increment_fp(message, entity):
+    """
+    Aliases: increment_fp, fp+
+
+    Targeted.  (See .target)
+
+    Increment the fate points available to an entity by 1.
+
+    Examples:
+
+        .fp+ @ Weft
+
+        .fp+ Weft
+
+    """
     result = _issue_command({"command": "increment_fp", "entity": entity})
     if await standard_abort(message, result):
         return
@@ -564,6 +643,20 @@ async def _increment_fp(message, entity):
 @cmds.register(r"[.](decrement_fp|fp[-])(\s+(?P<entity>\w+))?")
 @targeted
 async def _decrement_fp(message, entity):
+    """
+    Aliases: decrement_fp, fp-
+
+    Targeted.  (See .target)
+
+    Decrement the fate points available to an entity by 1.
+
+    Examples:
+
+        .fp- @ Weft
+
+        .fp- Weft
+
+    """
     result = _issue_command({"command": "decrement_fp", "entity": entity})
     if await standard_abort(message, result):
         return
@@ -585,6 +678,32 @@ def _omit_match_spans(matches, string):
 @cmds.register(r"[.](add_aspect|aspect[+]|a[+])(?P<maybe_aspect>.+)")
 @targeted
 async def _add_aspect(message, maybe_aspect, entity):
+    """
+    Aliases: add_aspect, aspect+, a+
+
+    Targeted.  (See .target)
+
+    Add an aspect to an entity.  Added aspects (other than consequences) will
+    be added with one free tag.
+
+    In addition to generic aspects, also supports indicating an aspect is: (A)
+    a consequence with some severity, (B) a fragile aspect, or (C) a sticky
+    aspect.
+
+    These annotations will be respected in commands that distinguish between
+    temporary aspects, or consqeuence severities, etc.
+
+    Examples:
+
+        .a+ off balance @ Mook
+
+        .a+ (mild) sprained ankle @ Weft
+
+        .a+ (sticky) derelict @ scene
+
+        .a+ (fragile) stiff breeze @ scene
+
+    """
     kind_translator = {
         "f": "fragile",
         "s": "sticky",
@@ -638,6 +757,18 @@ async def _add_aspect(message, maybe_aspect, entity):
 @cmds.register(r"[.](remove_aspect|aspect[-]|a[-])(?P<maybe_aspect>.+)")
 @targeted
 async def _remove_aspect(message, maybe_aspect, entity):
+    """
+    Aliases: remove_aspect, aspect-, a-
+
+    Targeted.  (See .target)
+
+    Completely remove the given aspect from an entity.
+
+    Examples:
+
+        .a- drunk @ Jackson
+
+    """
     aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
     entity_id_matches = list(re.finditer(r'@\s+(\S+)', maybe_aspect))
     aspect_text = _omit_match_spans(
@@ -659,6 +790,20 @@ async def _remove_aspect(message, maybe_aspect, entity):
 @cmds.register(r"[.](tag_aspect|tag)(?P<maybe_aspect>.+)")
 @targeted
 async def _tag_aspect(message, maybe_aspect, entity):
+    """
+    Aliases: tag_aspect, tag
+
+    Targeted.  (See .target)
+
+    Tag an aspect on an entity which has a free tag on it.  This just tracks
+    that the free tag has been used, but does not automatically apply bonuses
+    to a roll or anything like that.
+
+    Examples:
+
+        .tag off balance @ Mook
+
+    """
     aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
     entity_id_matches = list(re.finditer(r'@\s+(\S+)', maybe_aspect))
     aspect_text = _omit_match_spans(
@@ -677,8 +822,22 @@ async def _tag_aspect(message, maybe_aspect, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](remove_all_temporary_aspects|clear_temporary_aspects|aspect[#]|a[#])")
+@cmds.register(r"[.](clear_all_temporary_aspects|clear_temporary_aspects|aspect[#]|a[#])")
 async def _clear_all_temporary_aspects(message):
+    """
+    Aliases: clear_all_temporary_aspects, clear_temporary_aspects, aspect#, a#
+
+    Clear all temporary aspects (not sticky or consequences) on all entities.
+    This cannot be targeted to specific entities: this always applies to ALL
+    entities.
+
+    Intended for GM use at the end of a scene.
+
+    Examples:
+
+        .aspect#
+
+    """
     result = _issue_command({
         "command": "remove_all_temporary_aspects",
     })
@@ -690,6 +849,24 @@ async def _clear_all_temporary_aspects(message):
 
 @cmds.register(r"[.](clear_consequences|cons#)\s+(?P<max_cons>.+)")
 async def _clear_consequences(message, max_cons):
+    """
+    Aliases: clear_consequences, cons#
+
+    Clear all consequences on all entities with severity equal to or less
+    severe than the given severity.
+
+    Intended for GM use when sufficient time has elapsed.
+
+    This cannot be targeted to an entity, this clears consequences on ALL
+    entities.
+
+    Examples:
+
+        .cons# mild
+
+        .cons# severe
+
+    """
     kind_translator = {
         "f": "fragile",
         "s": "sticky",
@@ -717,6 +894,21 @@ async def _clear_consequences(message, max_cons):
 )
 @targeted
 async def _inflict_stress(message, track, box, entity=None):
+    """
+    Aliases: inflict_stress, stress+, s+
+
+    Targeted.  (See .target)
+
+    Check a stress box on yourself (if you have used .claim/.assume) or an
+    entity.
+
+    Examples:
+
+        .s+ (p) 2 @ Weft
+
+        .s+ (ment) 1
+
+    """
     tracks = [
         "physical",
         "mental",
@@ -745,7 +937,21 @@ async def _inflict_stress(message, track, box, entity=None):
     r"[.](clear_stress|stress[-]|s[-])\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
 )
 @targeted
-async def _remove_stress(message, track, box, entity=None):
+async def _clear_stress(message, track, box, entity=None):
+    """
+    Aliases: clear_stress, stress-, s-
+
+    Targeted.  (See .target)
+
+    Uncheck a stress box on an entity.
+
+    Examples:
+
+        .s- (p) 2 @ Weft
+
+        .s- (ment) 1
+
+    """
     tracks = [
         "physical",
         "mental",
@@ -771,6 +977,15 @@ async def _remove_stress(message, track, box, entity=None):
 
 @cmds.register(r"[.](clear_all_stress|stress[#]|s[#])")
 async def _clear_all_stress(message):
+    """
+    Aliases: clear_all_stress, stress#, s#
+
+    Intended for GM use after a conflict ends.  Clears ALL stress on all
+    entities.
+
+    Can't be targeted to a particular entity: this always applies to everybody.
+    To clear specific stress boxes on a specific character, use .clear_stress.
+    """
     result = _issue_command({
         "command": "clear_all_stress",
     })
@@ -783,6 +998,55 @@ async def _clear_all_stress(message):
 @cmds.register(r"[.](target|t\b)(\s+(?P<entity>\w+))?")
 @targeted
 async def _target(message, entity):
+    """
+    Aliases: target, t
+
+    Targeted.  (See .target -- i.e. this command)
+
+    Many of the bot commands can be "targeted" to specific entities.  You
+    target entities by adding "@ Entityname" to the command.  The entity name
+    is not case-sensitive.
+
+    Alternately, you can use the .claim/.assume command to assume the role of a
+    particular entity, typically your player character.  In that case you can
+    omit the "@ Entityname" and your default will be used instead.  (You can
+    override this by providing "@ Entityname", however)
+
+    Regarding the .target command specifically:
+
+    If you ran a command but forgot to target it to an entity, use this either
+    with an entity name, or after using .claim/.assume to assume the role of an
+    entity, and the command will be rerun against that entity.
+
+    Note that this does not allow you to CHANGE the target of a command, it can
+    only be used to apply a target when none was present before!
+
+    The targeting works reliably, but the .target command itself is probably a
+    little buggy... maybe just rerun the previous command and include the
+    entity this time :)
+
+    Examples:
+
+        Say you had not assumed the role of your player character, and you
+        wanted to add an aspect to yourself:
+
+        .a+ some aspect name that is long and I don't want to retype it
+
+        The bot will give you an error saying you need to target an entity.
+        You can use this to target yourself:
+
+        .target Weft
+
+        Or you can first assume your character, then use .target without
+        providing a name and it will also target your character:
+
+        .target
+
+    Tips:
+
+        This remembers rolls on a per-player (not entity) basis.
+
+    """
     author = message.author.display_name
     if author in player_last_missing_target_cmd:
         (func, message, args, kwargs) = player_last_missing_target_cmd[author]
@@ -792,6 +1056,31 @@ async def _target(message, entity):
 
 @cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?")
 async def _roll(message, maybe_bonuses):
+    """
+    Aliases: roll
+
+    Roll fate dice, optionally adding bonuses, and add up the result.
+
+    You can also freely annotate any part of the roll with text to say what
+    skill you're rolling, or to describe the flavor of your action, etc.
+
+    Examples:
+
+        .roll
+
+        .roll +2 athletics +3 because I feel like it -1 guilt
+
+    Tips:
+
+        If you make a mistake and need to adjust the bonuses applied to your
+        last roll, you can use the .amend command.
+
+        Note that the rolls are associated to you, the player, not your
+        character (even if you have used .claim or .assume to assume the guise
+        of a character).  So there is no need to target an entity using "@
+        Entity" when rolling (or amending your roll).
+
+    """
     maybe_bonuses = maybe_bonuses or ""
     rolled = random.choices([-1, 0, 1], k=4)
     rolls_formatted = [
@@ -829,6 +1118,34 @@ async def _roll(message, maybe_bonuses):
 
 @cmds.register(r"[.]amend(\s+(?P<maybe_bonuses>.*))?")
 async def _amend(message, maybe_bonuses):
+    """
+    Aliases: amend
+
+    Adjust the bonuses on your previous roll.  Mostly intended for fixing
+    mistakes.
+
+    Examples:
+
+        Say you issued a plain .roll and you got a response like:
+
+        @med rolled:  [- 0 0 -] -2  = -2
+
+        But you forgot that actually you have a +4 from a skill, but a -1 from
+        an effect.  Rerolling from scratch will likely also change the roll
+        result from -2, so use amend:
+
+        .amend +4 athletics for dodging -1 for terrain
+
+        @med rolled:  [- 0 0 -] -2 +4 -1 = 1
+
+    Tips:
+
+        The rolls are associated to you, the player, not your character (even
+        if you have used .claim or .assume to assume the guise of a character).
+        So there is no need to target an entity using "@ Entity" when rolling
+        or amending.
+
+    """
     author = message.author.display_name
     if author not in player_last_rolls:
         await message.channel.send(f"Could not find previous roll for {author} :sad:")
@@ -863,6 +1180,28 @@ async def _amend(message, maybe_bonuses):
 @cmds.register(r"[.](order_add|order|ord|order[+]|ord[+])(\s+(?P<maybe_bonuses>.*))")
 @targeted
 async def _order_add(message, maybe_bonuses, entity):
+    """
+    Aliases: order_add, order [followed by something], ord, order+, ord+
+
+    Targeted.  (See .target)
+
+    Add yourself or an entity to the turn order tracker.  This is intended for
+    setting up the turn order.  If you are trying to claim your spot in the
+    turn order after deferring, use .act.
+
+    Examples:
+
+        .order @ Weft
+
+        .order +2 athletics @ Weft
+
+        .ord +2 athletics +3 just because @ Weft
+
+    Reminder: if you have used .claim or .assume to assume an entity as
+    yourself, you don't need to provide the "@ Yourname", the command will
+    default to your assumed entity.  You can still override this default by
+    providing "@ Entity".
+    """
     maybe_bonuses = maybe_bonuses or ""
     bonuses = [b.group(0) for b in re.finditer(r'[+-]\d+', maybe_bonuses)]
     bonus_values = [
@@ -885,6 +1224,11 @@ async def _order_add(message, maybe_bonuses, entity):
 
 @cmds.register(r"[.](order_next|next)")
 async def _order_next(message):
+    """
+    Aliases: order_next, next
+
+    Move on to the next entity in the turn order.
+    """
     result = _issue_command({
         "command": "next",
     })
@@ -895,8 +1239,13 @@ async def _order_next(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_back|back)")
+@cmds.register(r"[.](order_back|back|previous|prev)")
 async def _order_back(message):
+    """
+    Aliases: order_back, back, previous, prev
+
+    Move back to the previous entity in the turn order.
+    """
     result = _issue_command({
         "command": "back",
     })
@@ -909,6 +1258,11 @@ async def _order_back(message):
 
 @cmds.register(r"[.](order_start|start)")
 async def _order_start(message):
+    """
+    Aliases: order_start, start
+
+    Start the turn order with the entities who have been added to it.
+    """
     result = _issue_command({
         "command": "start_order",
     })
@@ -921,6 +1275,11 @@ async def _order_start(message):
 
 @cmds.register(r"[.](order_clear|order[#]|stop)")
 async def _order_clear(message):
+    """
+    Aliases: order_clear, order#, stop
+
+    End the turn order tracking.
+    """
     result = _issue_command({
         "command": "clear_order",
     })
@@ -931,7 +1290,25 @@ async def _order_clear(message):
 
 
 @cmds.register(r"[.](order_drop|drop|remove|order[-])")
+@targeted
 async def _order_drop(message, entity=None):
+    """
+    Aliases: order_drop, drop, remove, order-
+
+    Targeted.  (See .target)
+
+    Remove yourself or another entity from the turn order.  Mostly intended for
+    use on NPCs when they are taken out.
+
+    Examples:
+
+        .order-
+
+        .remove @ Mook
+
+        .remove @ Mook @ Mook2
+
+    """
     result = _issue_command({
         "command": "drop_from_order",
         "entity": entity,
@@ -945,6 +1322,27 @@ async def _order_drop(message, entity=None):
 
 @cmds.register(r"[.](order_defer|defer)")
 async def _order_defer(message):
+    """
+    Aliases: order_defer, defer
+
+    Defer the current player's turn.  That entity can re-enter the turn order
+    with .undefer or .act.
+
+    Examples:
+
+        .defer
+
+        You can defer somebody else's turn.  This is intended for GMs managing
+        NPCs.
+
+        .defer @ Mook
+
+    Tips:
+
+        This command can NOT be targeted to a specific entity.  It always
+        applies to the entity whose turn it is currently.
+
+    """
     result = _issue_command({
         "command": "defer",
     })
@@ -958,6 +1356,23 @@ async def _order_defer(message):
 @cmds.register(r"[.](order_undefer|undefer|act)")
 @targeted
 async def _order_undefer(message, entity):
+    """
+    Aliases: order_undefer, undefer, act
+
+    Targeted.  (See .target)
+
+    If you have deferred your turn, this is how you re-enter the turn order at
+    this time.
+
+    Examples:
+
+        .act
+
+        .undefer
+
+        .undefer @ Mook
+
+    """
     result = _issue_command({
         "command": "undefer",
         "entity": entity,
@@ -971,12 +1386,45 @@ async def _order_undefer(message, entity):
 
 @cmds.register(r"[.](order_list|order_show|order[?]|order\s*$)")
 async def _order_list(message):
+    """
+    Aliases: order_list, order_show, order?, order [followed by nothing]
+
+    Print out the current turn order.
+
+    This will display the entities in the turn order so far while they are
+    being added, and will display the turn order tracker once the turns have
+    actually begun.
+    """
     game = _get_game()
     await message.channel.send(pretty_print_order(game.get("order", {})))
 
 
 @cmds.register(r"[.](create_entity|entity[+]|e[+])\s+(?P<props>.*)")
 async def _create_entity(message, props):
+    """
+    Aliases: create_entity, entity+, e+
+
+    Add a new entity to the bot.  Intended for managing NPCs.
+
+    Provide stress track sizes, starting fate points, and refresh if
+    applicable.
+
+    Examples:
+
+        Mook with 4 physical stress boxes, 2 mental, and one fate point:
+
+        .e+ Mook p 4 m 2 f 1
+
+        You can identify the properties with more explicit names:
+
+        .e+ Mook2 physical 4 mental 2 fp 1
+
+    Tips:
+
+        For many bot commands you can add flavorful annotation to the command,
+        but this is not one of those.
+
+    """
     splitted = props.split(" ", 1)
     if len(splitted) == 1:
         (name, other) = (splitted[0], "")
@@ -1025,6 +1473,23 @@ async def _create_entity(message, props):
 @cmds.register(r"[.](remove_entity|entity[-]|e[-])(\s+(?P<entity>\w+))?")
 @targeted
 async def _remove_entity(message, entity=None):
+    """
+    Aliases: remove_entity, entity-, e-
+
+    Targeted.  (See .target)
+
+    Completely remove an entity from the bot.  Intended for managing NPCs.
+    Don't do this with player characters!
+
+    Examples:
+
+        .e- Mook
+
+        .e- @ Mook
+
+        .entity- Warehouse
+
+    """
     result = _issue_command({"command": "remove_entity", "entity": entity})
     if await standard_abort(message, result):
         return
@@ -1040,6 +1505,13 @@ async def _help(message, command=None):
 
     Get help on a command.  If you say .help without a command, it will list
     the available commands.
+
+    Examples:
+
+        .help
+
+        .help add_aspect
+
     """
     if command is None:
         quoted_function_names = [
@@ -1055,14 +1527,14 @@ async def _help(message, command=None):
         as_function = cmds.search_by_function_name(command)
         matches = list(unique(with_dot + without_dot + as_function))
 
-        exact = [m for m in matches if m.__name__.lstrip("_") == command.strip()]
+        exact = [m for m in matches if cmds.function_name(m) == command.strip()]
         if exact:
             matches = exact
 
         if len(matches) == 0:
             await message.channel.send(f"No commands matching '{command}'")
         elif len(matches) == 1:
-            name = matches[0].__name__.lstrip("_")
+            name = cmds.function_name(matches[0])
             if matches[0].__doc__ is None:
                 docstring_raw = "(No help available)"
             else:
@@ -1077,7 +1549,7 @@ async def _help(message, command=None):
             out_f = f"Help for command `{name}`:\n{docstring}"
             await message.channel.send(out_f)
         else:
-            names = [m.__name__.lstrip("_") for m in matches]
+            names = [cmds.function_name(m) for m in matches]
             quoted_names = [f"`{name}`" for name in names]
             names = " ".join(quoted_names)
             await message.channel.send(
