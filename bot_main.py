@@ -90,6 +90,26 @@ class CommandRegistrar:
             else:
                 raise ValueError(f"No match found for: {string}")
 
+    def all_matches(string):
+        return [
+            func for (regex, func) in self.commands.items()
+            if re.search(regex, string)
+        ]
+
+    def search_by_function_name(string):
+        return [
+            func for (_, func) in self.commands.items()
+            if (
+                string in func.__name__ or
+                string in string.func.__name__.lstrip("_")
+            )
+        ]
+
+    def all_function_names():
+        return [
+            func.__name__.lstrip("_") for func in self.commands.values()
+        ]
+
 
 cmds = CommandRegistrar()
 
@@ -445,15 +465,19 @@ async def standard_abort(message, response):
             get_in(["result", "description"], response) or
             get_in(["description"], response)
         )
-        await _as_json_file(
-            message.channel,
-            response,
-            summary=f"{message.author.mention}: Error: `{desc}`",
-            filename="error.txt",
-        )
+        await inline_abort(message, desc)
         return True
     else:
         return False
+
+
+async def inline_abort(message, description):
+    await _as_json_file(
+        message.channel,
+        response,
+        summary=f"{message.author.mention}: Error: `{description}`",
+        filename="error.txt",
+    )
 
 
 #
@@ -1005,6 +1029,31 @@ async def _remove_entity(message, entity=None):
 
     ent = get_in(["result", "result"], result)
     await message.channel.send(f"Removed entity {entity}")
+
+
+@cmds.register(r"[.](help)(\s+(?P<command>\w+))?")
+async def _help(message, command=None):
+    if command is None:
+        batches = partition_all(5, cmds.all_function_names)
+        out_f = "\n".join(" ".join(batch) for batch in batches)
+        await message.channel.send(out_f)
+
+    else:
+        with_dot = cmds.all_matches("." + command)
+        without_dot = cmds.all_matches(command)
+        as_function = cmds.search_by_function_name(command)
+        matches = with_dot + without_dot + as_function
+
+        if len(matches) == 0:
+            await inline_abort(message, f"No commands matching '{command}'")
+        elif len(matches) == 1:
+            await message.channel.send(matches[0].__doc__)
+        else:
+            names = " ".join(m.__name__.lstrip("_") for m in matches)
+            await inline_abort(
+                message,
+                f"Ambiguous.  Did you mean one of the following?\n{names}",
+            )
 
 
 #
