@@ -1622,7 +1622,7 @@ async def _help(message, command=None):
         out_f = ""
         for (group, funcs) in cmds.groups.items():
             out_f += f"**{group.title()}**:\n"
-            names = [cmds.function_name(func) for func in funcs]
+            names = list(unique(cmds.function_name(func) for func in funcs))
             quoted_function_names = [f"`{name}`" for name in names]
             batches = partition_all(5, quoted_function_names)
             out_f += "\n".join(" ".join(batch) for batch in batches)
