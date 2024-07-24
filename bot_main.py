@@ -835,12 +835,18 @@ async def _add_aspect(message, maybe_aspect, entity):
     """
     kind_translator = {
         "f": "fragile",
+        "fragile": "fragile",
         "s": "sticky",
+        "stick": "sticky",
+        "sticky": "sticky",
         "style": "style",
         "mild": "mild",
         "mod": "moderate",
+        "moderate": "moderate",
         "sev": "severe",
+        "severe": "severe",
         "x": "extreme",
+        "extreme": "extreme",
     }
     consequence_kinds = ["mild", "moderate", "severe", "extreme"]
     aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
