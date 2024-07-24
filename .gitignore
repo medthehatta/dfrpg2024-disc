@@ -1,3 +1,5 @@
 *.sw[lmnop]
 __pycache__
 venv
+config.json
+player_mapping.json
