@@ -1089,6 +1089,9 @@ async def _clear_all_stress(message):
     Intended for GM use after a conflict ends.  Clears ALL stress on all
     entities.
 
+    Note this does not clear the "hunger" stress track on entities which have
+    them!  That stress must be cleared manually.
+
     Can't be targeted to a particular entity: this always applies to everybody.
     To clear specific stress boxes on a specific character, use .clear_stress.
     """
