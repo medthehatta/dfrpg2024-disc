@@ -350,8 +350,8 @@ def pretty_print_entity(entity):
     }
     aspects_f = []
     for aspect in aspects:
-        if "tags" in aspects:
-            tags_f = " ".join(["(#)"]*aspects["tags"]) + " "
+        if "tags" in aspect:
+            tags_f = " ".join(["(#)"]*aspect["tags"]) + " "
         else:
             tags_f = ""
 
@@ -551,12 +551,14 @@ async def _add_aspect(message, maybe_aspect, entity):
     kind_translator = {
         "f": "fragile",
         "s": "sticky",
+        "mild": "mild",
         "mod": "moderate",
         "sev": "severe",
         "x": "extreme",
     }
+    consequence_kinds = ["mild", "moderate", "severe", "extreme"]
     aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
-    entity_id_matches = list(re.finditer(r'@\s+(\S+)', maybe_aspect))
+    entity_id_matches = list(re.finditer(r'@\s*(\S+)', maybe_aspect))
     aspect_text = _omit_match_spans(
         aspect_kinds_matches + entity_id_matches,
         maybe_aspect,
@@ -567,11 +569,18 @@ async def _add_aspect(message, maybe_aspect, entity):
                 kind_match.group(1).lower(),
                 kind_match.group(1),
             )
+
+            if k in consequence_kinds:
+                free_tags = 0
+            else:
+                free_tags = 1
+
             result = _issue_command({
                 "command": "add_aspect",
                 "name": aspect_text.strip(),
                 "entity": entity,
                 "kind": k,
+                "tags": free_tags,
             })
             if await standard_abort(message, result):
                 return
@@ -580,6 +589,7 @@ async def _add_aspect(message, maybe_aspect, entity):
             "command": "add_aspect",
             "name": aspect_text.strip(),
             "entity": entity,
+            "tags": 1,
         })
         if await standard_abort(message, result):
             return
@@ -599,6 +609,27 @@ async def _remove_aspect(message, maybe_aspect, entity):
     )
     result = _issue_command({
         "command": "remove_aspect",
+        "name": aspect_text.strip(),
+        "entity": entity,
+    })
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(ent))
+
+
+@cmds.register(r"[.](tag_aspect|tag)(?P<maybe_aspect>.+)")
+@targeted
+async def _tag_aspect(message, maybe_aspect, entity):
+    aspect_kinds_matches = list(re.finditer(r'[(](.+)[)]', maybe_aspect))
+    entity_id_matches = list(re.finditer(r'@\s+(\S+)', maybe_aspect))
+    aspect_text = _omit_match_spans(
+        aspect_kinds_matches + entity_id_matches,
+        maybe_aspect,
+    )
+    result = _issue_command({
+        "command": "tag_aspect",
         "name": aspect_text.strip(),
         "entity": entity,
     })
