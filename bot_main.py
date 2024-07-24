@@ -86,7 +86,7 @@ class CommandRegistrar:
             regexes = rest
 
         r_aliases = r"|".join(re.escape(alias) for alias in aliases)
-        alias_regex = f"[.]({r_aliases})"
+        alias_regex = f"^[.]({r_aliases})"
 
         def _register(func):
             self.aliases[func] = aliases
