@@ -116,7 +116,7 @@ class CommandRegistrar:
 
     def first_match(self, string, fallback=None):
         for (regex, func) in self.commands.items():
-            if match := re.search(regex, string):
+            if match := re.search(regex, string, re.I):
                 return (regex, func, match.groupdict())
         else:
             if fallback:
@@ -127,7 +127,7 @@ class CommandRegistrar:
     def longest_match(self, string, fallback=None):
         found = []
         for (regex, func) in self.commands.items():
-            if match := re.search(regex, string):
+            if match := re.search(regex, string, re.I):
                 found.append((regex, func, match.groupdict(), match.span()))
 
         if not found:
@@ -146,7 +146,7 @@ class CommandRegistrar:
     def all_matches(self, string):
         return [
             func for (regex, func) in self.commands.items()
-            if re.search(regex, string)
+            if re.search(regex, string, re.I)
         ]
 
     def search_by_function_name(self, string):
