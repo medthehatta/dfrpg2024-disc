@@ -1407,7 +1407,7 @@ async def _amend(message, maybe_bonuses):
 
 
 @cmds.register(
-    ["order_add", "order+", "ord+"],
+    ["order_add", "order", "ord"],
     rest=r"(\s+(?P<maybe_bonuses>.*))?",
     group="turn order",
 )
@@ -1417,6 +1417,9 @@ async def _order_add(message, maybe_bonuses, entity):
     Add yourself or an entity to the turn order tracker.  This is intended for
     setting up the turn order.  If you are trying to claim your spot in the
     turn order after deferring, use .act.
+
+    Running .order without any arguments will just print the order.  If you
+    want to order with 0 athletics, use .order +0.
 
     Examples:
 
@@ -1433,6 +1436,13 @@ async def _order_add(message, maybe_bonuses, entity):
     """
     maybe_bonuses = maybe_bonuses or ""
     bonuses = [b.group(0) for b in re.finditer(r'[+-]\d+', maybe_bonuses)]
+
+    # If no bonuses were provided, just print the order and quit
+    if not bonuses:
+        game = _get_game()
+        await message.channel.send(pretty_print_order(game.get("order", {})))
+        return
+
     bonus_values = [
         -int(b[1:]) if b.startswith("-") else int(b[1:])
         for b in bonuses
@@ -1614,22 +1624,6 @@ async def _order_undefer(message, entity):
 
     order = get_in(["result", "result"], result)
     await message.channel.send(pretty_print_order(order))
-
-
-@cmds.register(
-    ["order_list", "order_show", "order"],
-    group="turn order",
-)
-async def _order_list(message):
-    """
-    Print out the current turn order.
-
-    This will display the entities in the turn order so far while they are
-    being added, and will display the turn order tracker once the turns have
-    actually begun.
-    """
-    game = _get_game()
-    await message.channel.send(pretty_print_order(game.get("order", {})))
 
 
 @cmds.register(
