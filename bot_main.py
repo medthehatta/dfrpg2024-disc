@@ -877,12 +877,12 @@ async def _clear_all_temporary_aspects(message):
 
 
 @cmds.register(
-    r"[.](clear_consequences|cons#)\s+(?P<max_cons>.+)",
+    r"[.](recover_all|cons#)\s+(?P<max_cons>.+)",
     group="aspects",
 )
-async def _clear_consequences(message, max_cons):
+async def _recover_all(message, max_cons):
     """
-    Aliases: clear_consequences, cons#
+    Aliases: recover_all, cons#
 
     Clear all consequences on all entities with severity equal to or less
     severe than the given severity.
@@ -911,13 +911,59 @@ async def _clear_consequences(message, max_cons):
         max_cons.strip(),
     )
     result = _issue_command({
-        "command": "clear_consequences",
+        "command": "clear_all_consequences",
         "max_severity": k,
     })
     if await standard_abort(message, result):
         return
 
     await message.channel.send(f"All consequences up to {k} cleared")
+
+
+@cmds.register(
+    r"[.](recover|rec)\s+(?P<max_cons>\S+)",
+    group="aspects",
+)
+@targeted
+async def _recover(message, max_cons, entity=None):
+    """
+    Aliases: recover, rec
+
+    Targeted.  (See .target)
+
+    Clear all consequences on the target with severity equal to or less severe
+    than the given severity.
+
+    Intended for GM use when sufficient time has elapsed.
+
+    Examples:
+
+        .recover mild @ Ice_troll
+
+        .recover severe @ Ice_troll
+
+    """
+    kind_translator = {
+        "f": "fragile",
+        "s": "sticky",
+        "mod": "moderate",
+        "sev": "severe",
+        "x": "extreme",
+    }
+    k = kind_translator.get(
+        max_cons.strip().lower(),
+        max_cons.strip(),
+    )
+    result = _issue_command({
+        "command": "clear_consequences",
+        "max_severity": k,
+        "entity": entity,
+    })
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(ent))
 
 
 @cmds.register(
