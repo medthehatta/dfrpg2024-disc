@@ -123,6 +123,25 @@ class CommandRegistrar:
             else:
                 raise ValueError(f"No match found for: {string}")
 
+    def longest_match(self, string, fallback=None):
+        found = []
+        for (regex, func) in self.commands.items():
+            if match := re.search(regex, string):
+                found.append((regex, func, match.groupdict(), match.span()))
+
+        if not found:
+            if fallback:
+                return (None, fallback, string)
+            else:
+                raise ValueError(f"No match found for: {string}")
+
+        def _match_size(match):
+            (_, _, _, (left, right)) = match
+            return right - left
+
+        (regex, func, groupdict, *rest) = max(found, key=_match_size)
+        return (regex, func, groupdict)
+
     def all_matches(self, string):
         return [
             func for (regex, func) in self.commands.items()
@@ -353,7 +372,10 @@ async def on_message(message):
 
 
 async def _dispatch_bot_command(message):
-    (regex, func, kwargs) = cmds.first_match(message.content, fallback=lambda x: x)
+    (regex, func, kwargs) = cmds.longest_match(
+        message.content,
+        fallback=lambda x: x,
+    )
     if regex is not None:
         await func(message, **kwargs)
     else:
