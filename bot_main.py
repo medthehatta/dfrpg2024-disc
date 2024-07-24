@@ -1575,7 +1575,7 @@ async def _create_entity(message, props):
     Tips:
 
         For many bot commands you can add flavorful annotation to the command,
-        however this command is more rigid and does not.
+        however this command is more rigid and does not support it.
 
     """
     splitted = props.split(" ", 1)
@@ -1601,16 +1601,94 @@ async def _create_entity(message, props):
         for (key, value) in sliding_window(2, other.split())
     }
 
-    fate = int(other_map.get("fate", 0))
-    refresh = int(other_map.get("refresh", 0))
+    fate = other_map.get("fate", 0)
+    refresh = other_map.get("refresh", 0)
     stress_maxes = {
-        "physical": int(other_map.get("physical", 0)),
-        "mental": int(other_map.get("mental", 0)),
-        "hunger": int(other_map.get("hunger", 0)),
-        "social": int(other_map.get("social", 0)),
+        "physical": other_map.get("physical", 0),
+        "mental": other_map.get("mental", 0),
+        "hunger": other_map.get("hunger", 0),
+        "social": other_map.get("social", 0),
     }
     result = _issue_command({
         "command": "create_entity",
+        "name": name,
+        "stress_maxes": stress_maxes,
+        "refresh": refresh,
+        "fate": fate,
+    })
+    if await standard_abort(message, result):
+        return
+
+    entity = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(entity))
+
+
+@cmds.register(
+    ["edit_entity", "edit", "e!"],
+    rest=r"\s+(?P<props>.*)",
+    group="entity info",
+)
+@targeted
+async def _edit_entity(message, props, entity):
+    """
+    Edit an existing entity in the bot.
+
+    Provide stress track sizes, fate points, and refresh if applicable.  This
+    will only edit the provided properties.
+
+    Examples:
+
+        Say we had a mook with 4 physical stress boxes, 2 mental, and one fate
+        point:
+
+        .create_entity Mook2 physical 4 mental 2 fp 1
+
+        Then, the mook transforms into a giant beast:
+
+        .e! physical 8 @ Mook2
+
+        Note that when creating the entity, the name must be provided first.
+        However when editing, you target the entity as normal.  (It doesn't
+        make sense to use targeting for creation since the entity doesn't exist
+        yet).
+
+    Tips:
+
+        For many bot commands you can add flavorful annotation to the command,
+        however this command is more rigid and does not support it.
+
+    """
+    # name comes from the target
+    name = entity
+    other = props
+
+    _rev_canonical = {
+        "fate": "fate fp f",
+        "refresh": "refresh ref refsh r",
+        "physical": "physical phys phy ph p",
+        "mental": "mental mentl ment men m",
+        "hunger": "hunger hungr hung hng hngr hr h",
+        "social": "social soc",
+    }
+    _canonical = {}
+    for (key, value_str) in _rev_canonical.items():
+        for v in value_str.split():
+            _canonical[v] = key
+    other_map = {
+        _canonical.get(key.lower(), key.lower()): value
+        for (key, value) in sliding_window(2, other.split())
+    }
+
+    fate = other_map.get("fate")
+    refresh = other_map.get("refresh")
+    stress_maxes = {
+        "physical": other_map.get("physical"),
+        "mental": other_map.get("mental"),
+        "hunger": other_map.get("hunger"),
+        "social": other_map.get("social"),
+    }
+    result = _issue_command({
+        "command": "edit_entity",
         "name": name,
         "stress_maxes": stress_maxes,
         "refresh": refresh,
