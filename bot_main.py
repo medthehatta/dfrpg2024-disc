@@ -520,6 +520,10 @@ async def _claim(message, entity):
 
     Tips:
 
+        Note that from the bot's point of view, your user ID is different in
+        shared channels than it is in direct messages with the bot.  You may
+        need to .claim/.assume both in DM and in the channel.
+
         Technical note: the associations are cleared if the bot is restarted.
 
     """
