@@ -1345,7 +1345,7 @@ async def _amend(message, maybe_bonuses):
 
 @cmds.register(
     ["order_add", "order", "ord", "order+", "ord+"],
-    rest=r"(\s+(?P<maybe_bonuses>.*))",
+    rest=r"(\s+(?P<maybe_bonuses>.*))?",
     group="turn order",
 )
 @targeted
