@@ -1038,6 +1038,53 @@ async def _inflict_stress(message, track, box, entity=None):
 
 
 @cmds.register(
+    ["absorb_stress", "stress!", "s!"],
+    rest=[
+        r"\s+((?P<amount>\d+).*((?P<track>\w+)))",
+        r"\s+(((?P<track>\w+)).*(?P<amount>\d+))",
+    ],
+    group="stress",
+)
+@targeted
+async def _absorb_stress(message, track, amount, entity=None):
+    """
+    Absorb the given amount of stress on yourself (if you have used
+    .claim/.assume) or another entity.
+
+    This will attempt to use multiple available stress boxes if necessary to
+    absorb the stress.
+
+    Examples:
+
+        .s! p 5 @ Weft
+
+        .s! ment 1
+
+    """
+    tracks = [
+        "physical",
+        "mental",
+        "hunger",
+        "social",
+    ]
+    stress = next(
+        (t for t in tracks if t.startswith(track.lower())),
+        None,
+    )
+    result = _issue_command({
+        "command": "absorb_stress",
+        "stress": stress,
+        "amount": amount,
+        "entity": entity,
+    })
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(ent))
+
+
+@cmds.register(
     ["clear_stress", "stress-", "s-"],
     rest=[
         r"\s+((?P<box>\d+).*((?P<track>\w+)))",
