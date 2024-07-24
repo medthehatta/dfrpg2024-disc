@@ -728,10 +728,7 @@ async def _add_aspect(message, maybe_aspect, entity):
                 kind_match.group(1),
             )
 
-            if k in consequence_kinds:
-                free_tags = 0
-            else:
-                free_tags = 1
+            free_tags = 1
 
             result = _issue_command({
                 "command": "add_aspect",
