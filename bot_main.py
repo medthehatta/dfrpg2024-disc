@@ -646,6 +646,22 @@ async def _info(message, entity=None):
     await message.channel.send(pretty_print_entity(ent))
 
 
+@cmds.register(["summary"], group="entity info")
+async def _summary(message, entity=None):
+    """
+    Display an overview of all the entities, including their stress, fate, and
+    aspects.
+    """
+    game = _get_game()
+    ents = game.get("entities", {}).values()
+    if ents:
+        pretty = [pretty_print_entity(ent) for ent in ents]
+        spaced = [p + "\n" if not p.endswith("\n") else p for p in pretty]
+        await message.channel.send("\n".join(spaced))
+    else:
+        await message.channel.send("No entities")
+
+
 @cmds.register("entities", group="entity info")
 async def _entities(message):
     """
