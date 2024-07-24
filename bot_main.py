@@ -996,8 +996,8 @@ async def _recover(message, max_cons, entity=None):
 @cmds.register(
     ["inflict_stress", "stress+", "s+"],
     rest=[
-        r"\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
-        r"\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+        r"\s+((?P<box>\d+).*((?P<track>\w+)))",
+        r"\s+(((?P<track>\w+)).*(?P<box>\d+))",
     ],
     group="stress",
 )
@@ -1009,9 +1009,9 @@ async def _inflict_stress(message, track, box, entity=None):
 
     Examples:
 
-        .s+ (p) 2 @ Weft
+        .s+ p 2 @ Weft
 
-        .s+ (ment) 1
+        .s+ ment 1
 
     """
     tracks = [
@@ -1040,8 +1040,8 @@ async def _inflict_stress(message, track, box, entity=None):
 @cmds.register(
     ["clear_stress", "stress-", "s-"],
     rest=[
-        r"\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
-        r"\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+        r"\s+((?P<box>\d+).*((?P<track>\w+)))",
+        r"\s+(((?P<track>\w+)).*(?P<box>\d+))",
     ],
     group="stress",
 )
@@ -1052,9 +1052,9 @@ async def _clear_stress(message, track, box, entity=None):
 
     Examples:
 
-        .s- (p) 2 @ Weft
+        .s- p 2 @ Weft
 
-        .s- (ment) 1
+        .s- ment 1
 
     """
     tracks = [
