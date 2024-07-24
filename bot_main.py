@@ -1103,7 +1103,7 @@ async def _clear_all_stress(message):
 
 @cmds.register(
     ["target"],
-    rest=r"(\s+(?P<entity>\w+))?",
+    rest=r"\b(\s+(?P<entity>\w+))?",
     group="targeting",
 )
 @targeted
@@ -1616,6 +1616,7 @@ async def _targeting(message):
     If it turns out that you want to apply an operation to multiple targets,
     you can repeat the "@ Entityname" for each target.
     """
+    await _help(message, "targeting")
 
 
 @cmds.register("help", rest=r"(\s+(?P<command>.+))?")
