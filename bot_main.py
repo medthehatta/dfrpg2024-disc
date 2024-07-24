@@ -537,7 +537,15 @@ async def standard_abort(message, response):
             get_in(["result", "description"], response) or
             get_in(["description"], response)
         )
-        await inline_abort(message, response, desc)
+        # Detect timeouts
+        if desc.startswith("Timeout: predicate _is_ready not truthy"):
+            await message.channel.send(
+                f"{message.author.mention}: Error: "
+                f"Server received the message `{message.content}` "
+                f"but failed to process it before the timeout."
+            )
+        else:
+            await inline_abort(message, response, desc)
         return True
     else:
         return False
