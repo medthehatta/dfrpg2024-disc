@@ -1618,7 +1618,7 @@ async def _targeting(message):
     """
 
 
-@cmds.register("help", rest=r"(\s+(?P<command>\w+))?")
+@cmds.register("help", rest=r"(\s+(?P<command>.+))?")
 async def _help(message, command=None):
     """
     Get help on a command.  If you say .help without a command, it will list
