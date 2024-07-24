@@ -9,11 +9,13 @@ import requests
 import subprocess
 import time
 import tempfile
+import textwrap
 
 from cytoolz import sliding_window
 from cytoolz import partition_all
 from cytoolz import valmap
 from cytoolz import get_in
+from cytoolz import unique
 
 import discord
 from discord.ext import commands
@@ -90,22 +92,22 @@ class CommandRegistrar:
             else:
                 raise ValueError(f"No match found for: {string}")
 
-    def all_matches(string):
+    def all_matches(self, string):
         return [
             func for (regex, func) in self.commands.items()
             if re.search(regex, string)
         ]
 
-    def search_by_function_name(string):
+    def search_by_function_name(self, string):
         return [
             func for (_, func) in self.commands.items()
             if (
                 string in func.__name__ or
-                string in string.func.__name__.lstrip("_")
+                string in func.__name__.lstrip("_")
             )
         ]
 
-    def all_function_names():
+    def all_function_names(self):
         return [
             func.__name__.lstrip("_") for func in self.commands.values()
         ]
@@ -465,13 +467,13 @@ async def standard_abort(message, response):
             get_in(["result", "description"], response) or
             get_in(["description"], response)
         )
-        await inline_abort(message, desc)
+        await inline_abort(message, response, desc)
         return True
     else:
         return False
 
 
-async def inline_abort(message, description):
+async def inline_abort(message, response, description):
     await _as_json_file(
         message.channel,
         response,
@@ -778,7 +780,7 @@ async def _clear_all_stress(message):
     await message.channel.send(f"Cleared all stress")
 
 
-@cmds.register(r"[.](target|t)(\s+(?P<entity>\w+))?")
+@cmds.register(r"[.](target|t\b)(\s+(?P<entity>\w+))?")
 @targeted
 async def _target(message, entity):
     author = message.author.display_name
@@ -1033,8 +1035,17 @@ async def _remove_entity(message, entity=None):
 
 @cmds.register(r"[.](help)(\s+(?P<command>\w+))?")
 async def _help(message, command=None):
+    """
+    Aliases: help
+
+    Get help on a command.  If you say .help without a command, it will list
+    the available commands.
+    """
     if command is None:
-        batches = partition_all(5, cmds.all_function_names)
+        quoted_function_names = [
+            f"`{name}`" for name in cmds.all_function_names()
+        ]
+        batches = partition_all(5, quoted_function_names)
         out_f = "\n".join(" ".join(batch) for batch in batches)
         await message.channel.send(out_f)
 
@@ -1042,17 +1053,36 @@ async def _help(message, command=None):
         with_dot = cmds.all_matches("." + command)
         without_dot = cmds.all_matches(command)
         as_function = cmds.search_by_function_name(command)
-        matches = with_dot + without_dot + as_function
+        matches = list(unique(with_dot + without_dot + as_function))
+
+        exact = [m for m in matches if m.__name__.lstrip("_") == command.strip()]
+        if exact:
+            matches = exact
 
         if len(matches) == 0:
-            await inline_abort(message, f"No commands matching '{command}'")
+            await message.channel.send(f"No commands matching '{command}'")
         elif len(matches) == 1:
-            await message.channel.send(matches[0].__doc__)
+            name = matches[0].__name__.lstrip("_")
+            if matches[0].__doc__ is None:
+                docstring_raw = "(No help available)"
+            else:
+                docstring_raw = textwrap.dedent(
+                        matches[0].__doc__
+                        .replace("\n\n", "%DOUBLE_NEWLINE%")
+                        .replace("\n", "")
+                        .replace("%DOUBLE_NEWLINE%", "\n\n")
+                        .replace("    ", " ")
+                )
+            docstring = f"```\n{docstring_raw}\n```"
+            out_f = f"Help for command `{name}`:\n{docstring}"
+            await message.channel.send(out_f)
         else:
-            names = " ".join(m.__name__.lstrip("_") for m in matches)
-            await inline_abort(
-                message,
-                f"Ambiguous.  Did you mean one of the following?\n{names}",
+            names = [m.__name__.lstrip("_") for m in matches]
+            quoted_names = [f"`{name}`" for name in names]
+            names = " ".join(quoted_names)
+            await message.channel.send(
+                f"Ambiguous.  Did you mean one of the following?\n"
+                f"{' '.join(quoted_names)}"
             )
 
 
