@@ -68,17 +68,46 @@ class CommandRegistrar:
     def __init__(self):
         self.commands = {}
         self.groups = {}
+        self.aliases = {}
 
-    def register(self, *regexes, group="miscellaneous"):
+    def register(
+        self,
+        aliases,
+        rest="",
+        group="miscellaneous",
+        doc_only=False,
+    ):
+        if isinstance(aliases, str):
+            aliases = [aliases]
+
+        if isinstance(rest, str):
+            regexes = [rest]
+        else:
+            regexes = rest
+
+        r_aliases = r"|".join(re.escape(alias) for alias in aliases)
+        alias_regex = f"[.]({r_aliases})"
 
         def _register(func):
+            self.aliases[func] = aliases
+
             for regex in regexes:
-                self.commands[regex] = func
+                self.commands[alias_regex + regex] = func
                 self.groups[group] = self.groups.get(group, []) + [func]
 
             @wraps(func)
             def _a(*args, **kwargs):
                 return func(*args, **kwargs)
+
+            if doc_only:
+                func.__doc__ = (
+                    f"\n NOTE: .{aliases[0]} is not a usable command, "
+                    f"this is just documentation.\n\n{func.__doc__}"
+                )
+            else:
+                func.__doc__ = (
+                    f"\n Aliases: {', '.join(aliases)}\n{func.__doc__}"
+                )
 
             return _a
 
@@ -461,6 +490,8 @@ def targeted(func):
             all_kwargs = {**kwargs, "entity": entity}
             await func(message, *args, **all_kwargs)
 
+    _targeted.__doc__ = f"\n Targeted.  (See .targeting)\n\n{func.__doc__}"
+
     return _targeted
 
 
@@ -491,11 +522,9 @@ async def inline_abort(message, response, description):
 #
 
 
-@cmds.register(r"[.]test")
+@cmds.register("test")
 async def _test(message):
     """
-    Aliases: test
-
     Echo back the contents of the test message.
 
     Intended for debugging purposes.
@@ -503,14 +532,16 @@ async def _test(message):
     await message.channel.send(f"Successfully found message: {message.content}")
 
 
-@cmds.register(r"[.](claim|c|assume)\s+(?P<entity>\w+)", group="targeting")
+@cmds.register(
+    ["claim", "c", "assume"],
+    rest=r"\s+(?P<entity>\w+)",
+    group="targeting",
+)
 async def _claim(message, entity):
     """
-    Aliases: claim, c, assume
-
     Provide the name of an entity to assume the role of.  This entity will then
     be used as the default target for any targeted commands issued by you.
-    (See .target)
+    (See .targeting)
 
     Intended primarily for GM use, as they may assume the role of various NPCs.
     Players will typically assume their player character and then change it
@@ -547,11 +578,9 @@ async def _claim(message, entity):
         await message.channel.send(f"{author} is now playing {entity_name}")
 
 
-@cmds.register(r"[.](unclaim|unassume)", group="targeting")
+@cmds.register(["unclaim", "unassume"], group="targeting")
 async def _unclaim(message):
     """
-    Aliases: unclaim, unassume
-
     If you, the player, have used .claim/.assume to assume the role of an
     entity (like your player character), this command will clear that
     association.
@@ -576,11 +605,9 @@ async def _unclaim(message):
         await message.channel.send(f"{author} is not playing any character")
 
 
-@cmds.register(r"[.](claimed|assumed)", group="targeting")
+@cmds.register(["claimed", "assumed"], group="targeting")
 async def _claimed(message):
     """
-    Aliases: claimed, assumed
-
     Dump the mapping between players and their "assumed" entities.
 
     Claim/assume an entity with .claim/.assume.
@@ -588,14 +615,10 @@ async def _claimed(message):
     await message.channel.send("`" + json.dumps(player_mapping) + "`")
 
 
-@cmds.register(r"[.](info)(\s+(?P<entity>\w+))?", group="entity info")
+@cmds.register("info", rest=r"(\s+(?P<entity>\w+))?", group="entity info")
 @targeted
 async def _info(message, entity=None):
     """
-    Aliases: info
-
-    Targeted.  (See .target)
-
     Display an entity, including its stress, fate, and aspects.
 
     Examples:
@@ -610,11 +633,9 @@ async def _info(message, entity=None):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](entities)", group="entity info")
+@cmds.register("entities", group="entity info")
 async def _entities(message):
     """
-    Aliases: entities
-
     List the entities being tracked by the bot.
 
     Intended for GM use.  Using this may spoiler the secret presence of NPCs!
@@ -629,16 +650,13 @@ async def _entities(message):
 
 
 @cmds.register(
-    r"[.](increment_fp|fp[+])(\s+(?P<amount>\d+))?",
+    ["increment_fp", "fp+"],
+    rest=r"(\s+(?P<amount>\d+))?",
     group="fate"
 )
 @targeted
 async def _increment_fp(message, amount=None, entity=None):
     """
-    Aliases: increment_fp, fp+
-
-    Targeted.  (See .target)
-
     Increment the fate points available to an entity by the provided value (or
     by 1 if no value is provided).
 
@@ -662,16 +680,13 @@ async def _increment_fp(message, amount=None, entity=None):
 
 
 @cmds.register(
-    r"[.](decrement_fp|fp[-])(\s+(?P<amount>\d+))?",
+    ["decrement_fp", "fp-"],
+    rest=r"(\s+(?P<amount>\d+))?",
     group="fate",
 )
 @targeted
 async def _decrement_fp(message, amount=None, entity=None):
     """
-    Aliases: decrement_fp, fp-
-
-    Targeted.  (See .target)
-
     Decrement the fate points available to an entity by the provided value (or
     by 1 if no value is provided).
 
@@ -704,14 +719,14 @@ def _omit_match_spans(matches, string):
     return re.sub(r'(\s){2,}', r'\1', "".join(string[a:b] for (a, b) in spans))
 
 
-@cmds.register(r"[.](add_aspect|aspect[+]|a[+])(?P<maybe_aspect>.+)", group="aspects")
+@cmds.register(
+    ["add_aspect", "aspect+", "a+"],
+    rest=r"(?P<maybe_aspect>.+)",
+    group="aspects",
+)
 @targeted
 async def _add_aspect(message, maybe_aspect, entity):
     """
-    Aliases: add_aspect, aspect+, a+
-
-    Targeted.  (See .target)
-
     Add an aspect to an entity.  Added aspects (other than consequences) will
     be added with one free tag.
 
@@ -780,14 +795,14 @@ async def _add_aspect(message, maybe_aspect, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](remove_aspect|aspect[-]|a[-])(?P<maybe_aspect>.+)", group="aspects")
+@cmds.register(
+    ["remove_aspect", "aspect-", "a-"],
+    rest=r"(?P<maybe_aspect>.+)",
+    group="aspects",
+)
 @targeted
 async def _remove_aspect(message, maybe_aspect, entity):
     """
-    Aliases: remove_aspect, aspect-, a-
-
-    Targeted.  (See .target)
-
     Completely remove the given aspect from an entity.
 
     Examples:
@@ -813,14 +828,14 @@ async def _remove_aspect(message, maybe_aspect, entity):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](tag_aspect|tag)(?P<maybe_aspect>.+)", group="aspects")
+@cmds.register(
+    ["tag_aspect", "tag"],
+    rest=r"(?P<maybe_aspect>.+)",
+    group="aspects",
+)
 @targeted
 async def _tag_aspect(message, maybe_aspect, entity):
     """
-    Aliases: tag_aspect, tag
-
-    Targeted.  (See .target)
-
     Tag an aspect on an entity which has a free tag on it.  This just tracks
     that the free tag has been used, but does not automatically apply bonuses
     to a roll or anything like that.
@@ -849,13 +864,16 @@ async def _tag_aspect(message, maybe_aspect, entity):
 
 
 @cmds.register(
-    r"[.](clear_all_temporary_aspects|clear_temporary_aspects|aspect[#]|a[#])",
+    [
+        "clear_all_temporary_aspects",
+        "clear_temporary_aspects",
+        "aspect#",
+        "a#",
+    ],
     group="aspects",
 )
 async def _clear_all_temporary_aspects(message):
     """
-    Aliases: clear_all_temporary_aspects, clear_temporary_aspects, aspect#, a#
-
     Clear all temporary aspects (not sticky or consequences) on all entities.
     This cannot be targeted to specific entities: this always applies to ALL
     entities.
@@ -877,13 +895,12 @@ async def _clear_all_temporary_aspects(message):
 
 
 @cmds.register(
-    r"[.](recover_all|cons#)\s+(?P<max_cons>.+)",
+    ["recover_all", "cons#"],
+    rest=r"\s+(?P<max_cons>.+)",
     group="aspects",
 )
 async def _recover_all(message, max_cons):
     """
-    Aliases: recover_all, cons#
-
     Clear all consequences on all entities with severity equal to or less
     severe than the given severity.
 
@@ -921,16 +938,13 @@ async def _recover_all(message, max_cons):
 
 
 @cmds.register(
-    r"[.](recover|rec)\s+(?P<max_cons>\S+)",
+    ["recover", "rec"],
+    rest=r"\s+(?P<max_cons>\S+)",
     group="aspects",
 )
 @targeted
 async def _recover(message, max_cons, entity=None):
     """
-    Aliases: recover, rec
-
-    Targeted.  (See .target)
-
     Clear all consequences on the target with severity equal to or less severe
     than the given severity.
 
@@ -967,17 +981,16 @@ async def _recover(message, max_cons, entity=None):
 
 
 @cmds.register(
-    r"[.](inflict_stress|stress[+]|s[+])\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
-    r"[.](inflict_stress|stress[+]|s[+])\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+    ["inflict_stress", "stress+", "s+"],
+    rest=[
+        r"\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
+        r"\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+    ],
     group="stress",
 )
 @targeted
 async def _inflict_stress(message, track, box, entity=None):
     """
-    Aliases: inflict_stress, stress+, s+
-
-    Targeted.  (See .target)
-
     Check a stress box on yourself (if you have used .claim/.assume) or an
     entity.
 
@@ -1012,17 +1025,16 @@ async def _inflict_stress(message, track, box, entity=None):
 
 
 @cmds.register(
-    r"[.](clear_stress|stress[-]|s[-])\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
-    r"[.](clear_stress|stress[-]|s[-])\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+    ["clear_stress", "stress-", "s-"],
+    rest=[
+        r"\s+((?P<box>\d+).*([(](?P<track>\w+)[)]))",
+        r"\s+(([(](?P<track>\w+)[)]).*(?P<box>\d+))",
+    ],
     group="stress",
 )
 @targeted
 async def _clear_stress(message, track, box, entity=None):
     """
-    Aliases: clear_stress, stress-, s-
-
-    Targeted.  (See .target)
-
     Uncheck a stress box on an entity.
 
     Examples:
@@ -1055,11 +1067,12 @@ async def _clear_stress(message, track, box, entity=None):
     await message.channel.send(pretty_print_entity(ent))
 
 
-@cmds.register(r"[.](clear_all_stress|stress[#]|s[#])", group="stress")
+@cmds.register(
+    ["clear_all_stress", "stress#", "s#"],
+    group="stress",
+)
 async def _clear_all_stress(message):
     """
-    Aliases: clear_all_stress, stress#, s#
-
     Intended for GM use after a conflict ends.  Clears ALL stress on all
     entities.
 
@@ -1075,28 +1088,14 @@ async def _clear_all_stress(message):
     await message.channel.send(f"Cleared all stress")
 
 
-@cmds.register(r"[.](target|t\b)(\s+(?P<entity>\w+))?", group="targeting")
+@cmds.register(
+    ["target"],
+    rest=r"(\s+(?P<entity>\w+))?",
+    group="targeting",
+)
 @targeted
 async def _target(message, entity):
     """
-    Aliases: target, t
-
-    Targeted.  (See .target -- i.e. this command)
-
-    Many of the bot commands can be "targeted" to specific entities.  You
-    target entities by adding "@ Entityname" to the command.  The entity name
-    is not case-sensitive.
-
-    Alternately, you can use the .claim/.assume command to assume the role of a
-    particular entity, typically your player character.  In that case you can
-    omit the "@ Entityname" and your default will be used instead.  (You can
-    override this by providing "@ Entityname", however)
-
-    If it turns out that you want to apply an operation to multiple targets,
-    you can repeat the "@ Entityname" for each target.
-
-    Regarding the .target command specifically:
-
     If you ran a command but forgot to target it to an entity, use this either
     with an entity name, or after using .claim/.assume to assume the role of an
     entity, and the command will be rerun against that entity.
@@ -1135,11 +1134,13 @@ async def _target(message, entity):
         await func(message, *args, **kwargs)
 
 
-@cmds.register(r"[.]roll(\s+(?P<maybe_bonuses>.*))?", group="rolling")
+@cmds.register(
+    ["roll"],
+    rest=r"(\s+(?P<maybe_bonuses>.*))?",
+    group="rolling",
+)
 async def _roll(message, maybe_bonuses):
     """
-    Aliases: roll
-
     Roll fate dice, optionally adding bonuses, and add up the result.
 
     You can also freely annotate any part of the roll with text to say what
@@ -1197,11 +1198,13 @@ async def _roll(message, maybe_bonuses):
     await message.channel.send(display)
 
 
-@cmds.register(r"[.]amend(\s+(?P<maybe_bonuses>.*))?", group="rolling")
+@cmds.register(
+    ["amend"],
+    rest=r"(\s+(?P<maybe_bonuses>.*))?",
+    group="rolling",
+)
 async def _amend(message, maybe_bonuses):
     """
-    Aliases: amend
-
     Adjust the bonuses on your previous roll.  Mostly intended for fixing
     mistakes.
 
@@ -1258,14 +1261,14 @@ async def _amend(message, maybe_bonuses):
     await message.channel.send(display)
 
 
-@cmds.register(r"[.](order_add|order|ord|order[+]|ord[+])(\s+(?P<maybe_bonuses>.*))", group="turn order")
+@cmds.register(
+    ["order_add", "order", "ord", "order+", "ord+"],
+    rest=r"(\s+(?P<maybe_bonuses>.*))",
+    group="turn order",
+)
 @targeted
 async def _order_add(message, maybe_bonuses, entity):
     """
-    Aliases: order_add, order [followed by something], ord, order+, ord+
-
-    Targeted.  (See .target)
-
     Add yourself or an entity to the turn order tracker.  This is intended for
     setting up the turn order.  If you are trying to claim your spot in the
     turn order after deferring, use .act.
@@ -1303,11 +1306,12 @@ async def _order_add(message, maybe_bonuses, entity):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_next|next)", group="turn order")
+@cmds.register(
+    ["order_next", "next"],
+    group="turn order",
+)
 async def _order_next(message):
     """
-    Aliases: order_next, next
-
     Move on to the next entity in the turn order.
     """
     result = _issue_command({
@@ -1320,11 +1324,12 @@ async def _order_next(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_back|back|previous|prev)", group="turn order")
+@cmds.register(
+    ["order_back", "back", "previous", "prev"],
+    group="turn order",
+)
 async def _order_back(message):
     """
-    Aliases: order_back, back, previous, prev
-
     Move back to the previous entity in the turn order.
     """
     result = _issue_command({
@@ -1337,11 +1342,12 @@ async def _order_back(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_start|start)", group="turn order")
+@cmds.register(
+    ["order_start", "start"],
+    group="turn order",
+)
 async def _order_start(message):
     """
-    Aliases: order_start, start
-
     Start the turn order with the entities who have been added to it.
     """
     result = _issue_command({
@@ -1354,11 +1360,12 @@ async def _order_start(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_clear|order[#]|stop)", group="turn order")
+@cmds.register(
+    ["order_clear", "order#", "stop"],
+    group="turn order",
+)
 async def _order_clear(message):
     """
-    Aliases: order_clear, order#, stop
-
     End the turn order tracking.
     """
     result = _issue_command({
@@ -1370,14 +1377,13 @@ async def _order_clear(message):
     await message.channel.send("Turn order cleared")
 
 
-@cmds.register(r"[.](order_drop|drop|remove|order[-])", group="turn order")
+@cmds.register(
+    ["order_drop", "drop", "remove", "order-"],
+    group="turn order",
+)
 @targeted
 async def _order_drop(message, entity=None):
     """
-    Aliases: order_drop, drop, remove, order-
-
-    Targeted.  (See .target)
-
     Remove yourself or another entity from the turn order.  Mostly intended for
     use on NPCs when they are taken out.
 
@@ -1401,11 +1407,12 @@ async def _order_drop(message, entity=None):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_defer|defer)", group="turn order")
+@cmds.register(
+    ["order_defer", "defer"],
+    group="turn order",
+)
 async def _order_defer(message):
     """
-    Aliases: order_defer, defer
-
     Defer the current player's turn.  That entity can re-enter the turn order
     with .undefer or .act.
 
@@ -1434,14 +1441,13 @@ async def _order_defer(message):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_undefer|undefer|act)", group="turn order")
+@cmds.register(
+    ["order_undefer", "undefer", "act"],
+    group="turn order",
+)
 @targeted
 async def _order_undefer(message, entity):
     """
-    Aliases: order_undefer, undefer, act
-
-    Targeted.  (See .target)
-
     If you have deferred your turn, this is how you re-enter the turn order at
     this time.
 
@@ -1465,11 +1471,12 @@ async def _order_undefer(message, entity):
     await message.channel.send(pretty_print_order(order))
 
 
-@cmds.register(r"[.](order_list|order_show|order[?]|order\s*$)", group="turn order")
+@cmds.register(
+    ["order_list", "order_show", "order?"],
+    group="turn order",
+)
 async def _order_list(message):
     """
-    Aliases: order_list, order_show, order?, order [followed by nothing]
-
     Print out the current turn order.
 
     This will display the entities in the turn order so far while they are
@@ -1480,11 +1487,13 @@ async def _order_list(message):
     await message.channel.send(pretty_print_order(game.get("order", {})))
 
 
-@cmds.register(r"[.](create_entity|entity[+]|e[+])\s+(?P<props>.*)", group="entity info")
+@cmds.register(
+    ["create_entity", "entity+", "e+"],
+    rest=r"\s+(?P<props>.*)",
+    group="entity info",
+)
 async def _create_entity(message, props):
     """
-    Aliases: create_entity, entity+, e+
-
     Add a new entity to the bot.  Intended for managing NPCs.
 
     Provide stress track sizes, starting fate points, and refresh if
@@ -1552,16 +1561,13 @@ async def _create_entity(message, props):
 
 
 @cmds.register(
-    r"[.](remove_entity|entity[-]|e[-])(\s+(?P<entity>\w+))?",
+    ["remove_entity", "entity-", "e-"],
+    rest=r"(\s+(?P<entity>\w+))?",
     group="entity info",
 )
 @targeted
 async def _remove_entity(message, entity=None):
     """
-    Aliases: remove_entity, entity-, e-
-
-    Targeted.  (See .target)
-
     Completely remove an entity from the bot.  Intended for managing NPCs.
     Don't do this with player characters!
 
@@ -1582,11 +1588,26 @@ async def _remove_entity(message, entity=None):
     await message.channel.send(f"Removed entity {entity}")
 
 
-@cmds.register(r"[.](help)(\s+(?P<command>\w+))?")
+@cmds.register("targeting", group="targeting", doc_only=True)
+async def _targeting(message):
+    """
+    Many of the bot commands can be "targeted" to specific entities.  You
+    target entities by adding "@ Entityname" to the command.  The entity name
+    is not case-sensitive.
+
+    Alternately, you can use the .claim/.assume command to assume the role of a
+    particular entity, typically your player character.  In that case you can
+    omit the "@ Entityname" and your default will be used instead.  (You can
+    override this by providing "@ Entityname", however)
+
+    If it turns out that you want to apply an operation to multiple targets,
+    you can repeat the "@ Entityname" for each target.
+    """
+
+
+@cmds.register("help", rest=r"(\s+(?P<command>\w+))?")
 async def _help(message, command=None):
     """
-    Aliases: help
-
     Get help on a command.  If you say .help without a command, it will list
     the available commands.
 
@@ -1630,7 +1651,9 @@ async def _help(message, command=None):
                         .replace("\n\n", "%DOUBLE_NEWLINE%")
                         .replace("\n", "")
                         .replace("%DOUBLE_NEWLINE%", "\n\n")
-                        .replace("    ", " ")
+                        .replace("   ", " ")
+                        .replace("  ", " ")
+                        .replace(". ", ".  ")
                 )
             docstring = f"```\n{docstring_raw}\n```"
             out_f = f"Help for command `{name}`:\n{docstring}"
