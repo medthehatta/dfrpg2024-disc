@@ -383,7 +383,7 @@ async def on_message(message):
     guild = bot.get_guild(int(config["guild"]))
     diag = discord.utils.get(guild.channels, name=config["diagnostics"])
 
-    if message.content.startswith("."):
+    if message.content.startswith(".") and not message.content.startswith(".."):
         await _dispatch_bot_command(message)
 
     elif message.content.startswith("###"):
