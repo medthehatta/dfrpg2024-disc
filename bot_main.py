@@ -513,6 +513,17 @@ async def _info(message, entity=None):
     await message.channel.send(pretty_print_entity(ent))
 
 
+@cmds.register(r"[.](entities)")
+async def _entities(message):
+    game = _get_game()
+    ents = get_in(["entities"], game)
+    if ents:
+        ents_f = " ".join(v["name"] for v in ents.values())
+    else:
+        ents_f = "No entities"
+    await message.channel.send(ents_f)
+
+
 @cmds.register(r"[.](increment_fp|fp[+])(\s+(?P<entity>\w+))?")
 @targeted
 async def _increment_fp(message, entity):
