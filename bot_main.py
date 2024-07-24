@@ -890,7 +890,7 @@ async def _recover_all(message, max_cons):
     Intended for GM use when sufficient time has elapsed.
 
     This cannot be targeted to an entity, this clears consequences on ALL
-    entities.
+    entities.  Use .recover to recover from consequences on specific targets.
 
     Examples:
 
@@ -1092,6 +1092,9 @@ async def _target(message, entity):
     omit the "@ Entityname" and your default will be used instead.  (You can
     override this by providing "@ Entityname", however)
 
+    If it turns out that you want to apply an operation to multiple targets,
+    you can repeat the "@ Entityname" for each target.
+
     Regarding the .target command specifically:
 
     If you ran a command but forgot to target it to an entity, use this either
@@ -1120,11 +1123,9 @@ async def _target(message, entity):
         Or you can first assume your character, then use .target without
         providing a name and it will also target your character:
 
+        .assume Weft
+
         .target
-
-    Tips:
-
-        This remembers rolls on a per-player (not entity) basis.
 
     """
     author = message.author.display_name
