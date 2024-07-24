@@ -831,6 +831,7 @@ async def _add_aspect(message, maybe_aspect, entity):
     kind_translator = {
         "f": "fragile",
         "s": "sticky",
+        "style": "style",
         "mild": "mild",
         "mod": "moderate",
         "sev": "severe",
@@ -844,23 +845,28 @@ async def _add_aspect(message, maybe_aspect, entity):
         maybe_aspect,
     )
     if aspect_kinds_matches:
-        for kind_match in aspect_kinds_matches:
-            k = kind_translator.get(
-                kind_match.group(1).lower(),
-                kind_match.group(1),
-            )
+        kind_match = aspect_kinds_matches[0]
+        k = kind_translator.get(kind_match.group(1).lower())
 
+        if k == "style":
+            free_tags = 2
+            kind = {}
+        elif k is not None:
             free_tags = 1
+            kind = {"kind": k}
+        else:
+            free_tags = 1
+            kind = {}
 
-            result = _issue_command({
-                "command": "add_aspect",
-                "name": aspect_text.strip(),
-                "entity": entity,
-                "kind": k,
-                "tags": free_tags,
-            })
-            if await standard_abort(message, result):
-                return
+        result = _issue_command({
+            "command": "add_aspect",
+            "name": aspect_text.strip(),
+            "entity": entity,
+            "tags": free_tags,
+            **kind
+        })
+        if await standard_abort(message, result):
+            return
     else:
         result = _issue_command({
             "command": "add_aspect",
@@ -1769,7 +1775,7 @@ async def _edit_entity(message, props, entity):
 
 
 @cmds.register(
-    ["remove_entity", "entity-", "e-"],
+    ["remove_entity", "entity-"],
     rest=r"(\s+(?P<entity>\w+))?",
     group="entity info",
 )
@@ -1779,11 +1785,14 @@ async def _remove_entity(message, entity=None):
     Completely remove an entity from the bot.  Intended for managing NPCs.
     Don't do this with player characters!
 
+    N.B. you can add entities with .e+, but cannot remove them with .e- as that
+    could be "dangerous".
+
     Examples:
 
-        .e- Mook
+        .entity- Mook
 
-        .e- @ Mook
+        .entity- @ Mook
 
         .entity- Warehouse
 
