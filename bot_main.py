@@ -335,8 +335,8 @@ def pretty_print_entity(entity):
     }
 
     sections = [f"**{name.upper()}**"]
-    sections += [f"**{track[0].upper()})** {boxes}" for (track, boxes) in stresses.items()]
-    sections += [f"**FP)** {fp}/{refresh}"]
+    sections += [f"**{track[0].upper()})** {boxes}" for (track, boxes) in stresses.items() if boxes]
+    sections += [f"**FP)** {fp}/{refresh}" if refresh else f"**FP)** {fp}"]
     first_line = "  ".join(sections)
 
     aspects = entity.get("aspects", [])
@@ -936,6 +936,64 @@ async def _order_undefer(message, entity):
 async def _order_list(message):
     game = _get_game()
     await message.channel.send(pretty_print_order(game.get("order", {})))
+
+
+@cmds.register(r"[.](create_entity|entity[+]|e[+])\s+(?P<props>.*)")
+async def _create_entity(message, props):
+    splitted = props.split(" ", 1)
+    if len(splitted) == 1:
+        (name, other) = (splitted[0], "")
+    else:
+        (name, other) = splitted
+
+    _rev_canonical = {
+        "fate": "fate fp f",
+        "refresh": "refresh ref refsh r",
+        "physical": "physical phys phy ph p",
+        "mental": "mental mentl ment men m",
+        "hunger": "hunger hungr hung hng hngr hr h",
+        "social": "social soc",
+    }
+    _canonical = {}
+    for (key, value_str) in _rev_canonical.items():
+        for v in value_str.split():
+            _canonical[v] = key
+    other_map = {
+        _canonical.get(key.lower(), key.lower()): value
+        for (key, value) in sliding_window(2, other.split())
+    }
+
+    fate = int(other_map.get("fate", 0))
+    refresh = int(other_map.get("refresh", 0))
+    stress_maxes = {
+        "physical": int(other_map.get("physical", 0)),
+        "mental": int(other_map.get("mental", 0)),
+        "hunger": int(other_map.get("hunger", 0)),
+        "social": int(other_map.get("social", 0)),
+    }
+    result = _issue_command({
+        "command": "create_entity",
+        "name": name,
+        "stress_maxes": stress_maxes,
+        "refresh": refresh,
+        "fate": fate,
+    })
+    if await standard_abort(message, result):
+        return
+
+    entity = get_in(["result", "result"], result)
+    await message.channel.send(pretty_print_entity(entity))
+
+
+@cmds.register(r"[.](remove_entity|entity[-]|e[-])(\s+(?P<entity>\w+))?")
+@targeted
+async def _remove_entity(message, entity=None):
+    result = _issue_command({"command": "remove_entity", "entity": entity})
+    if await standard_abort(message, result):
+        return
+
+    ent = get_in(["result", "result"], result)
+    await message.channel.send(f"Removed entity {entity}")
 
 
 #
