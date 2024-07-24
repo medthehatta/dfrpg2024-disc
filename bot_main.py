@@ -1566,16 +1566,16 @@ async def _create_entity(message, props):
 
         Mook with 4 physical stress boxes, 2 mental, and one fate point:
 
-        .e+ Mook p 4 m 2 f 1
-
-        You can identify the properties with more explicit names:
-
         .e+ Mook2 physical 4 mental 2 fp 1
+
+        You can identify the properties with very abbreviated names:
+
+        .e+ Mook p 4 m 2 f 1
 
     Tips:
 
         For many bot commands you can add flavorful annotation to the command,
-        but this is not one of those.
+        however this command is more rigid and does not.
 
     """
     splitted = props.split(" ", 1)
