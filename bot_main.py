@@ -761,7 +761,7 @@ async def _portrait(message, url=None, entity=None):
     if await standard_abort(message, result):
         return
 
-    await message.channel.send(f"Set {entity} portrait.")
+    await message.channel.send(f"New portrait for {entity} has been set.")
 
 
 @cmds.register(
