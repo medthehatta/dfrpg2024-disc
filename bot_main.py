@@ -730,6 +730,41 @@ async def _entities(message):
 
 
 @cmds.register(
+    "portrait",
+    rest=r"(\s+(?P<url>\S+))?",
+    group="entity info",
+)
+@targeted
+async def _portrait(message, url=None, entity=None):
+    """
+    Set a portrait for a given entity to be displayed on the web dashboard.
+
+    You can use this to change your player character's icon, but it's primarily
+    intended for GM use when adding portraits to NPCs.
+
+    Example:
+
+        .portrait https://imgur.com/cM0D6pq.png @ Weft
+
+    Tips:
+
+        If you want to host the image on imgur, when you copy link, add ".png"
+        to the end.  The page won't render the image correctly without the .png
+        at the end!
+
+    """
+    result = _issue_command({
+        "command": "set_portrait",
+        "entity": entity,
+        "portrait_url": url,
+    })
+    if await standard_abort(message, result):
+        return
+
+    await message.channel.send(f"Set {entity} portrait.")
+
+
+@cmds.register(
     ["increment_fp", "fp+"],
     rest=r"(\s+(?P<amount>\d+))?",
     group="fate"
