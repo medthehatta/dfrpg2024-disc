@@ -1811,6 +1811,11 @@ async def _edit_entity(message, props, entity):
         make sense to use targeting for creation since the entity doesn't exist
         yet).
 
+        This example will probably be used less frequently, but to promote an
+        entity to a real player character, provide is_pc yes:
+
+        .e! is_pc yes @ NonMook
+
     Tips:
 
         For many bot commands you can add flavorful annotation to the command,
@@ -1840,6 +1845,7 @@ async def _edit_entity(message, props, entity):
 
     fate = other_map.get("fate")
     refresh = other_map.get("refresh")
+    is_pc = other_map.get("is_pc")
     stress_maxes = {
         "physical": other_map.get("physical"),
         "mental": other_map.get("mental"),
@@ -1852,6 +1858,7 @@ async def _edit_entity(message, props, entity):
         "stress_maxes": stress_maxes,
         "refresh": refresh,
         "fate": fate,
+        "is_pc": is_pc,
     })
     if await standard_abort(message, result):
         return
