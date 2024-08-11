@@ -1385,7 +1385,8 @@ async def _roll(message, maybe_bonuses):
 
         For GMs controlling multiple characters, you can provide "x5", for
         example, to perform the same roll 5 times.  These multiplied rolls
-        cannot be amended.
+        cannot be amended.  (If you provide xN more than once, only the first
+        will be taken.)
 
     """
     maybe_bonuses = maybe_bonuses or ""
