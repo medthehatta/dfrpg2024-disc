@@ -2049,8 +2049,47 @@ async def _targeting(message):
 
     If it turns out that you want to apply an operation to multiple targets,
     you can repeat the "@ Entityname" for each target.
+
+    If you are a GM who wants to apply the operation to some combination of
+    multiple mooks, you can do so with range targeting.  See .range_targeting.
     """
     await _help(message, "targeting")
+
+
+@cmds.register("range_targeting", group="targeting", doc_only=True)
+async def _range_targeting(message):
+    """
+    See .targeting for basic targeting.
+
+    If you need to target say 3 of 6 plant mooks named plant1 through plant6,
+    you don't want to have to type "plant" 3 times.  You can provide range
+    specifiers in your targets.
+
+    The general form is @ mook[positives!negatives], where positives is a list
+    of numbers like 1,2,3 (no spaces!); or ranges like 1-3; or both like 1,
+    3-4.
+
+    Negatives is also a list of numbers or ranges, but it will SUBTRACT those
+    numbers from the matches, so you can do e.g.
+
+    @ mook[1-4!2]
+
+    To target mook1, mook3, and mook4 -- no mook2!
+
+    IMPORTANT NOTE: you can't have any spaces in the range targeting syntax!
+
+    Examples:
+
+        @ mook1
+
+        @ mook[1,2,3]
+
+        @ mook[1,3-4]
+
+        @ mook[1-5!2,4]
+
+    """
+    await _help(message, "range_targeting")
 
 
 @cmds.register("help", rest=r"(\s+(?P<command>.+))?")
