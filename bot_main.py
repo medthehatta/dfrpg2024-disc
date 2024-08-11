@@ -17,6 +17,7 @@ from cytoolz import partition_all
 from cytoolz import valmap
 from cytoolz import get_in
 from cytoolz import unique
+from cytoolz import mapcat
 
 import discord
 from discord.ext import commands
@@ -237,6 +238,13 @@ def read_player_mapping():
             player_mention_mapping = {}
 
 
+def _maybe_groupdict(regex, string):
+    if m:= re.search(regex, string):
+        return m.groupdict()
+    else:
+        return {}
+
+
 #
 # Bot setup stuff
 #
@@ -410,10 +418,75 @@ def _insensitive_entity(game, name):
     return lower_map.get(name.lower(), name)
 
 
-def entities_from_message(message):
-    explicit_matches = [
-        m.group(1) for m in re.finditer(r'@\s*(\S+)', message.content)
+def _expand_one_mook_target(match):
+    dic = _maybe_groupdict(
+        (
+            r"(?P<name>[^[]+)"
+            r"(\["
+            r"(?P<positive>[^!]+)(!(?P<negative>.+))?"
+            r"\])?"
+        ),
+        match,
+    )
+    pos_segments = re.split(r",", dic.get("positive") or "")
+    neg_segments = re.split(r",", dic.get("negative") or "")
+
+    pos_ranges = [
+        (
+            _maybe_groupdict(r"\b(?P<start>\d+)-(?P<end>\d+)\b", segment)
+            or {"single": segment}
+        )
+        for segment in pos_segments
     ]
+    neg_ranges = [
+        (
+            _maybe_groupdict(r"\b(?P<start>\d+)-(?P<end>\d+)\b", segment)
+            or {"single": segment}
+        )
+        for segment in neg_segments
+    ]
+
+    values = []
+    for entry in pos_ranges:
+        start = entry.get("start")
+        end = entry.get("end")
+        single = entry.get("single")
+        if single:
+            values.append(int(single))
+        elif start and end:
+            values += list(range(int(start), int(end)+1))
+
+    for entry in neg_ranges:
+        start = entry.get("start")
+        end = entry.get("end")
+        single = entry.get("single")
+        if single:
+            s = int(single)
+            if s in values:
+                values.remove(s)
+        elif start and end:
+            s = int(start)
+            e = int(end)
+            for x in range(s, e+1):
+                if x in values:
+                    values.remove(x)
+
+    if values:
+        res = [f"{dic['name']}{i}" for i in values]
+    else:
+        res = [dic["name"]]
+
+    return res
+
+
+def _expand_mooks(matches):
+    return list(mapcat(_expand_one_mook_target, matches))
+
+
+def entities_from_message(message):
+    explicit_matches = _expand_mooks([
+        m.group(1) for m in re.finditer(r'@\s*(\S+)', message.content)
+    ])
     match_for_author_claim = player_mapping.get(message.author.display_name)
     match_for_author_name = re.search(r'[(](\S+)[)]', message.author.display_name)
 
