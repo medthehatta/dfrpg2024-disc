@@ -1320,6 +1320,39 @@ async def _target(message, entity):
         await func(message, *args, **kwargs)
 
 
+def _roll_once(maybe_bonuses=""):
+    rolled = random.choices([-1, 0, 1], k=4)
+    rolls_formatted = [
+        "+" if r == 1 else
+        "-" if r == -1 else
+        "0"
+        for r in rolled
+    ]
+    roll_format = "[" + " ".join(rolls_formatted) + "]"
+    roll_value = sum(rolled)
+    bonuses = [b.group(0) for b in re.finditer(r'[+-]\d+', maybe_bonuses)]
+    bonus_values = [
+        -int(b[1:]) if b.startswith("-") else int(b[1:])
+        for b in bonuses
+    ]
+    bonus_value = sum(bonus_values)
+    display = " ".join([
+        "**`" + roll_format + "`**",
+        f"`{roll_value}`",
+        f"`{' '.join(bonuses)}" if bonuses else "`",
+        "=`",
+        f"**`{roll_value + bonus_value}`**",
+    ]).replace("``", "")
+    result = {
+        "rolls_f": roll_format,
+        "roll_v": roll_value,
+        "bonuses": bonuses,
+        "bonus_v": bonus_value,
+        "total": roll_value + bonus_value,
+    }
+    return (result, display)
+
+
 @cmds.register(
     ["roll"],
     rest=r"(\s+(?P<maybe_bonuses>.*))?",
@@ -1338,6 +1371,8 @@ async def _roll(message, maybe_bonuses):
 
         .roll +2 athletics +3 because I feel like it -1 guilt
 
+        .roll +2 x8
+
     Tips:
 
         If you make a mistake and need to adjust the bonuses applied to your
@@ -1348,40 +1383,37 @@ async def _roll(message, maybe_bonuses):
         of a character).  So there is no need to target an entity using "@
         Entity" when rolling (or amending your roll).
 
+        For GMs controlling multiple characters, you can provide "x5", for
+        example, to perform the same roll 5 times.  These multiplied rolls
+        cannot be amended.
+
     """
     maybe_bonuses = maybe_bonuses or ""
-    rolled = random.choices([-1, 0, 1], k=4)
-    rolls_formatted = [
-        "+" if r == 1 else
-        "-" if r == -1 else
-        "0"
-        for r in rolled
-    ]
-    roll_format = "[" + " ".join(rolls_formatted) + "]"
-    roll_value = sum(rolled)
-    bonuses = [b.group(0) for b in re.finditer(r'[+-]\d+', maybe_bonuses)]
-    bonus_values = [
-        -int(b[1:]) if b.startswith("-") else int(b[1:])
-        for b in bonuses
-    ]
-    bonus_value = sum(bonus_values)
-    display = " ".join([
-        message.author.mention,
-        "rolled: ",
-        "**`" + roll_format + "`**",
-        f"`{roll_value}`",
-        f"`{' '.join(bonuses)}" if bonuses else "`",
-        "=`",
-        f"**`{roll_value + bonus_value}`**",
-    ]).replace("``", "")
-    player_last_rolls[message.author.display_name] = {
-        "rolls_f": roll_format,
-        "roll_v": roll_value,
-        "bonuses": bonuses,
-        "bonus_v": bonus_value,
-        "total": roll_value + bonus_value,
-    }
-    await message.channel.send(display)
+    duplicates_match = re.search(r'\bx(\d+)\b', maybe_bonuses)
+    if duplicates_match:
+        duplicates = int(duplicates_match.group(1))
+    else:
+        duplicates = 1
+
+    if duplicates > 1:
+        rolls = [
+            _roll_once(maybe_bonuses)
+            for _ in range(duplicates)
+        ]
+        output = "\n".join(display for (_, display) in rolls)
+
+    elif duplicates == 1:
+        (result, display) = _roll_once(maybe_bonuses)
+        player_last_rolls[message.author.display_name] = result
+        output = f"{message.author.mention} rolled: {display}"
+
+    else:
+        output = (
+            f"{message.author.mention}: Error: can't provide x0 "
+            f"duplicate modifier"
+        )
+
+    await message.channel.send(output)
 
 
 @cmds.register(
