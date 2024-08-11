@@ -1400,7 +1400,10 @@ async def _roll(message, maybe_bonuses):
             _roll_once(maybe_bonuses)
             for _ in range(duplicates)
         ]
-        output = "\n".join(display for (_, display) in rolls)
+        output = "\n".join(
+            f"{i}: {display}"
+            for (i, (_, display)) in enumerate(rolls, start=1)
+        )
 
     elif duplicates == 1:
         (result, display) = _roll_once(maybe_bonuses)
