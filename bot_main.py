@@ -391,10 +391,14 @@ async def on_message(message):
     guild = bot.get_guild(int(config["guild"]))
     diag = discord.utils.get(guild.channels, name=config["diagnostics"])
 
-    if message.content.startswith(".") and not message.content.startswith(".."):
+    if (
+        (message.content.startswith(".") and
+        not message.content.startswith(".."))
+        or message.content.startswith(",")
+    ):
         await _dispatch_bot_command(message)
 
-    elif message.content.startswith("###"):
+    elif message.content.startswith("ddd"):
         await message.channel.send(str(_deep_printable(message)))
 
     else:
@@ -908,7 +912,7 @@ def _omit_match_spans(matches, string):
 
 
 @cmds.register(
-    ["add_aspect", "aspect+", "a+"],
+    ["add_aspect", "aspect", "aspect+", "a+"],
     rest=r"(?P<maybe_aspect>.+)",
     group="aspects",
 )
